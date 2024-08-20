@@ -217,25 +217,12 @@ function startSpeechRecognition(spec, visID) {
 	recognition.onresult = function (event) {
 		// console.log(event)
 		const transcript = event.results[0][0].transcript; // Get transcript
-		// const speechResult = document.getElementById('speech-result');
-		// speechResult.innerHTML = transcript; // Display transcript
-		// const responseList = processResponseList(apiResponseDict[visID].slice(1, (response.length - 1)).split('. ').filter(Boolean));
-
-		// query({
-		// 	"inputs": {
-		// 		"source_sentence": transcript,
-		// 		"sentences": responseList
-		// 	}
-		// }).then((response) => {
-		// 	highLight(response, visID, spec)
-		// });
 		highLight(transcript, visID, spec)
 	};
 
 	// Event listener for speech recognition error
 	recognition.onerror = function (event) {
-		const speechResult = document.getElementById('speech-result');
-		speechResult.innerHTML = `<p style="color: red;">Error: ${event.error}</p>`;
+		console.log(event.error)
 	};
 }
 
