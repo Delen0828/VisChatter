@@ -1,0 +1,208 @@
+body {
+	font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+	background-color: #cfcfcf;
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	/* margin-left: 200px;
+	margin-right: 200px; */
+	/* margin-bottom: 10px; */
+	/* padding: 0; */
+}
+
+#headline {
+	width: 100%;
+	height: 30px;
+	position: absolute;
+	top: 0px;
+	background-color: #444444;
+}
+
+h1 {
+	font-size: 24px;
+	text-align: center;
+	color: #ffffff;
+	/* text-transform: uppercase; */
+}
+
+label {
+	font-size: 18px;
+	color: #333;
+}
+
+#vis-container {
+	width: 90%;
+	height: 70%;
+	border: none;
+	border-radius: 10px;
+	background-color: #f0f0f0;
+	position: absolute;
+	margin-left: 60px;
+	margin-right: 60px;
+	margin-top: 70px;
+	margin-bottom: 200px;
+}
+
+.draggable-chart {
+	position: absolute;
+	top: 200px;
+	left: 100px;
+}
+
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+/* Ensure background takes full height */
+#background {
+	/* justify-content: center;
+	align-items: center; */
+	/* display: flex; */
+	width: 100%;
+	bottom: 0px;
+	position: absolute;
+	padding-bottom: 10px;
+	padding-left: 30px;
+	padding-top: 30px;
+	padding-right: 120px;
+	background-color: #cfcfcf;
+}
+
+/* Widgets container */
+#widgets {
+	display: flex;
+	/* flex-direction: column; */
+	/* align-items: center; */
+	width: 100%;
+	/* max-width: 600px; */
+	/* padding: 20px; */
+
+}
+
+/* Input container */
+#inputContainer {
+	width: 100%;
+	margin-left: 30px;
+	/* margin-bottom: 20px; */
+
+}
+
+/* Textarea styles */
+#input {
+	width: 100%;
+	height: 160px;
+	padding: 10px;
+	font-size: 16px;
+	border: none;
+	background-color: #f0f0f0;
+	border-radius: 10px;
+	resize: none;
+	font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+	/* Allows vertical resize */
+}
+
+/* Buttons container */
+#buttons {
+	display: flex;
+	text-align: center;
+	flex-direction: column;
+	justify-content: flex-start;
+	/* Horizontally center */
+	/* align-items: center; */
+	padding: 10px;
+	min-width: 180px;
+	margin-left: 20px;
+}
+
+/* Button styles */
+.UI-Button {
+	padding: 10px 10px;
+	margin: 10px;
+	font-size: 16px;
+	text-align: center;
+	height: 50px;
+	/* margin-left: 30px; */
+	background-color: #ef7f7f;
+	color: white;
+	border: none;
+	border-radius: 10px;
+	cursor: pointer;
+	transition: background-color 0.3s;
+}
+
+.UI-Button:hover {
+	background-color: #ff4d4d;
+}
+
+#renderButton {
+	background-color: #5cae5f;
+}
+
+#renderButton:hover {
+	background-color: #299e2d;
+}
+
+.Response-Button {
+	padding: 10px 10px;
+	margin: 10px;
+	font-size: 16px;
+	max-width: 60%;
+	text-align: center;
+	height: 50px;
+	/* margin-left: 30px; */
+	background-color: #ffffff;
+	color: #000000;
+	border-radius: 10px;
+	cursor: pointer;
+	transition: background-color 0.3s;
+}
+
+.Response-Button:hover {
+	background-color: #cfcfcf;
+}
+
+.AI-sight-Button {
+	position: fixed;
+	right: 10px;
+	bottom: 10px;
+	background: #787878;
+	border: 1px solid #ccc;
+	border-radius: 10px;
+	width: 102px;
+	height: 72px;
+	padding: 10px;
+	color: #fff;
+	font-size: 18px;
+	font-family:'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+
+}
+.AI-sight-Button:hover {
+	color: #000000;
+}
+#buttonContainer {
+	position: absolute;
+	width: 100%;
+	bottom: 200px;
+	display: flex;
+	align-items: center;
+	flex-direction: column;
+	padding: 20px;
+}
+
+/* Responsive handling */
+@media (max-width: 600px) {
+	#widgets {
+		max-width: 90%;
+	}
+
+	#input {
+		font-size: 14px;
+	}
+
+	#clearButton {
+		font-size: 14px;
+		padding: 8px 16px;
+	}
+}
