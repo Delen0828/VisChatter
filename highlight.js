@@ -317,7 +317,6 @@ function lineThreshold(vega, mainType, subType, value, xList, yList, csvData) {
 			"y": { "field": "PlotY1", "type": `${subType}` },
 			"y2": { "field": "PlotY2", "type": `${subType}` }
 		}
-
 	});
 	delete vega['mark']
 	delete vega['encoding']
@@ -491,10 +490,11 @@ function barCompareTwo(vega, mainField, value1, value2) {
 
 function barThreshold(vega, subField, value) {
 	vega["layer"] = [{ 'mark': vega['mark'], 'encoding': vega['encoding'] }]
+	console.log('Make this number', value)
 	if (vega.encoding.x.field === subField) {
-		vega.layer.push({ "data": { "values": [{}] }, "mark": { "type": "rule", "color": "red" }, "encoding": { "x": { "datum": value } } });
+		vega.layer.push({ "data": { "values": [{}] }, "mark": { "type": "rule", "color": "red" }, "encoding": { "x": { "datum": Number(value) } } });
 	} else {
-		vega.layer.push({ "data": { "values": [{}] }, "mark": { "type": "rule", "color": "red" }, "encoding": { "y": { "datum": value } } });
+		vega.layer.push({ "data": { "values": [{}] }, "mark": { "type": "rule", "color": "red" }, "encoding": { "y": { "datum": Number(value) } } });
 	}
 	delete vega['mark']
 	delete vega['encoding']
@@ -520,7 +520,7 @@ function barRange(vega, subField, value1, value2) {
 	vega["layer"] = [{ 'mark': vega['mark'], 'encoding': vega['encoding'] }]
 	let new_layer = JSON.parse(JSON.stringify(vega["layer"][0]));
 	vega["layer"][0]["encoding"]["opacity"] = { "value": 0.4 }
-	new_layer["transform"] = [{ "filter": `datum['${subField}'] >= ${smallerOf(value1, value2)} && datum['${subField}'] <= ${biggerOf(value1, value2)}` }]
+	new_layer["transform"] = [{ "filter": `datum['${subField}'] >= ${smallerOf(Number(value1), Number(value2))} && datum['${subField}'] <= ${biggerOf(Number(value1), Number(value2))}` }]
 	new_layer["encoding"]["opacity"] = { "value": 1 }
 	vega["layer"].push(new_layer)
 	delete vega['mark']
@@ -599,11 +599,12 @@ function scatterTrend(vega, mainField, subField) {
 	vega["layer"] = [{ 'mark': vega['mark'], 'encoding': vega['encoding'] }]
 	let newcolor = getOppositeColor(vega["encoding"]["color"]["value"])
 	let new_layer = JSON.parse(JSON.stringify(vega["layer"][0]));
-	new_layer['encoding']['color'] = { "value": newcolor }
-	new_layer['transform'] = [{ "regression": subField, "on": mainField }]
+	new_layer['encoding']['color'] = { "value": 'red' }
+	new_layer['transform'] = [{ "regression": subField, "on": mainField,"extent": [5000, 50000]}]
 	new_layer['mark'] = 'line'
 	new_layer['encoding']["strokeWidth"] = { "value": 2 }
 	new_layer['encoding']["opacity"] = { "value": 1 }
+	delete new_layer['encoding']['size']
 	vega["layer"].push(new_layer)
 	delete vega['mark']
 	delete vega['encoding']

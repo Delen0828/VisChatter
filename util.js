@@ -110,17 +110,17 @@ function highLightHelper(visID, task, vega, mainField, subField, mainType, subTy
 			document.body.dispatchEvent(event);
 		}
 		if (task == 'FILTER') {
-			let newVega = barThreshold(vega, subField, newList[0]);
+			let newVega = barThreshold(vega, subField, taskList[1]);
 			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 			document.body.dispatchEvent(event);
 		}
 		if (task == 'TREND') {
-			let newVega = barTrend(vega, mainType, newList[0], newList[1]);
+			let newVega = barTrend(vega, mainType, taskList[1], taskList[2]);
 			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 			document.body.dispatchEvent(event);
 		}
 		if (task == 'RANGE') {
-			let newVega = barRange(vega, subField, newList[0], newList[1]);
+			let newVega = barRange(vega, subField, taskList[1], newList[2]);
 			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 			document.body.dispatchEvent(event);
 		}
@@ -195,19 +195,19 @@ function highLightHelper(visID, task, vega, mainField, subField, mainType, subTy
 			}
 		}
 	}
-	if (vega["mark"] == "scatter") {
+	if (vega["mark"] == "circle") {
 		if (task == 'RETRIEVE') {
-			let newVega = scatterHighlightOne(vega, mainField, subField, newList[0]);
+			let newVega = scatterHighlightOne(vega, mainField, subField, taskList[1]);
 			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 			document.body.dispatchEvent(event);
 		}
 		if (task == 'COMPARE') {
-			let newVega = scatterCompareTwo(vega, mainField, subField, newList[0], newList[1]);
+			let newVega = scatterCompareTwo(vega, mainField, subField, taskList[1], taskList[2]);
 			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 			document.body.dispatchEvent(event);
 		}
 		if (task == 'FILTER') {
-			let newVega = scatterThreshold(vega, subField, newList[0]);
+			let newVega = scatterThreshold(vega, subField, taskList[1]);
 			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 			document.body.dispatchEvent(event);
 		}
@@ -217,7 +217,7 @@ function highLightHelper(visID, task, vega, mainField, subField, mainType, subTy
 			document.body.dispatchEvent(event);
 		}
 		if (task == 'RANGE') {
-			let newVega = scatterRange(vega, subField, newList[0], newList[1]);
+			let newVega = scatterRange(vega, subField, taskList[1], taskList[2]);
 			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 			document.body.dispatchEvent(event);
 		}
@@ -298,20 +298,16 @@ const scatterMsg = {
 	model: "gpt-4-turbo",
 	messages: [
 		{ role: "system", content: "You are a helpful assistant for labeling datasets.  Return only the label without explanation." },
-		{ role: "user", content: "You need to label FACT with different tasks and retrieve key (temporal) values. The tasks include: RETRIEVE (value), COMPARE (value1, value2), FILTER (value(non-temporal)), TREND (INCREASE or DECREASE, value1(optional), value2(optional)), RANGE (value1(non-temporal), value2(non-temporal))." },
+		{ role: "user", content: "You need to label FACT with different tasks and retrieve key (temporal) values. The tasks include: FILTER (value(non-temporal)), TREND (INCREASE or DECREASE), RANGE (value1(non-temporal), value2(non-temporal))." },
 		{ role: "assistant", content: "I understand. I will just classify." },
-		{ role: "user", content: "FACT: The ticket price of NFL shown for 2006 is just over 60 dollars, and it rises from that point to just over 100 dollars in 2018." },
-		{ role: "assistant", content: "COMPARE, 2006, 2018" },
-		{ role: "user", content: "FACT: Viewers of Minecraft on twitch has gradually increased between 2018 and 2020." },
-		{ role: "assistant", content: "TREND, INCREASE, 2018, 2020" },
-		{ role: "user", content: "FACT: There are thousands of Bayern Munich fans and this number has seen a steady growth over the last twelve years." },
+		{ role: "user", content: "FACT: The health condition is proportional with the averaged income" },
 		{ role: "assistant", content: "TREND, INCREASE" },
+		{ role: "user", content: "FACT: The population falls with the averaged income increasing" },
+		{ role: "assistant", content: "TREND, DECREASE" },
 		{ role: "user", content: "FACT: Energy consumption in USA was fairly stable between 200 and 240." },
 		{ role: "assistant", content: "RANGE, 200, 240" },
 		{ role: "user", content: "FACT: The majorly of the big cities are higer than 3 index points." },
 		{ role: "assistant", content: "FILTER, 3" },
-		{ role: "user", content: "FACT: Omsk has the largest value of 3.5 index points in 2008." },
-		{ role: "assistant", content: "RETRIEVE, 2008" },
 		{ role: "user", content: `FACT: ` }, // Using the target message here
 	],
 	temperature: TEMP
@@ -336,7 +332,7 @@ function getPrompt(chartType, isMulti, target) {
 			newBarMsg['messages'][newBarMsg['messages'].length - 1]['content'] += target;
 			return newBarMsg
 		}
-		if (chartType == 'scatter') {
+		if (chartType == 'circle') {
 			let newScatterMsg = JSON.parse(JSON.stringify(scatterMsg));
 			newScatterMsg['messages'][newScatterMsg['messages'].length - 1]['content'] += target;
 			return newScatterMsg
