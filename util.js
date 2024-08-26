@@ -340,8 +340,10 @@ function getPrompt(chartType, isMulti, target) {
 	}
 }
 function highLight(response, visID, spec) {
-	console.log('Highlighting:',JSON.stringify(response));
+	// console.log('Highlighting:',JSON.stringify(response));
 	// const matchContainer = document.getElementById("match-sentence");
+	// const speechContainer= document.getElementById("speech-container")
+	// speechContainer.innerHTML=`<p><b>Highlight: </b>${response}</p>`
 	const target = response;
 	fetch(JSON.parse(spec)["data"]["url"])
 		.then(response => response.text())

@@ -572,9 +572,9 @@ function scatterCompareTwo(vega, mainField, subField, value1, value2) {
 function scatterThreshold(vega, subField, value) {
 	vega["layer"] = [{ 'mark': vega['mark'], 'encoding': vega['encoding'] }]
 	if (vega.encoding.x.field === subField) {
-		vega.layer.push({ "data": { "values": [{}] }, "mark": { "type": "rule", "color": "red" }, "encoding": { "x": { "datum": value } } });
+		vega.layer.push({ "data": { "values": [{}] }, "mark": { "type": "rule", "color": "red" }, "encoding": { "x": { "datum": Number(value) } } });
 	} else {
-		vega.layer.push({ "data": { "values": [{}] }, "mark": { "type": "rule", "color": "red" }, "encoding": { "y": { "datum": value } } });
+		vega.layer.push({ "data": { "values": [{}] }, "mark": { "type": "rule", "color": "red" }, "encoding": { "y": { "datum": Number(value) } } });
 	}
 	delete vega['mark']
 	delete vega['encoding']
@@ -584,11 +584,11 @@ function scatterThreshold(vega, subField, value) {
 function scatterRange(vega, subField, value1, value2) {
 	vega["layer"] = [{ 'mark': vega['mark'], 'encoding': vega['encoding'] }]
 	if (vega.encoding.x.field === subField) {
-		vega.layer.push({ "data": { "values": [{}] }, "mark": { "type": "rule", "color": "red" }, "encoding": { "x": { "datum": value1 } } });
-		vega.layer.push({ "data": { "values": [{}] }, "mark": { "type": "rule", "color": "red" }, "encoding": { "x": { "datum": value2 } } });
+		vega.layer.push({ "data": { "values": [{}] }, "mark": { "type": "rule", "color": "red" }, "encoding": { "x": { "datum": Number(value1) } } });
+		vega.layer.push({ "data": { "values": [{}] }, "mark": { "type": "rule", "color": "red" }, "encoding": { "x": { "datum": Number(value2) } } });
 	} else {
-		vega.layer.push({ "data": { "values": [{}] }, "mark": { "type": "rule", "color": "red" }, "encoding": { "y": { "datum": value1 } } });
-		vega.layer.push({ "data": { "values": [{}] }, "mark": { "type": "rule", "color": "red" }, "encoding": { "y": { "datum": value2 } } });
+		vega.layer.push({ "data": { "values": [{}] }, "mark": { "type": "rule", "color": "red" }, "encoding": { "y": { "datum": Number(value1) } } });
+		vega.layer.push({ "data": { "values": [{}] }, "mark": { "type": "rule", "color": "red" }, "encoding": { "y": { "datum": Number(value2) } } });
 	}
 	delete vega['mark']
 	delete vega['encoding']
