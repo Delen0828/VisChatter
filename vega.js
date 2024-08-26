@@ -3,7 +3,7 @@ makeDraggable(visContainer);
 makeSelectable(visContainer);
 enableRightClickRemoval(visContainer);
 
-document.body.addEventListener('click', () => {
+document.body.addEventListener('mouseup', () => {
   // console.log('removing...')
   document.querySelectorAll('.draggable-chart').forEach(div => {
     div.classList.remove('selected');
