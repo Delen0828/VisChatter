@@ -148,7 +148,7 @@ function fixIndex(index, valuelist) {
 }
 
 function getListSelected(csvData, legend) {
-	// console.log(csvData)
+	console.log(csvData)
 	let rows = csvData.split('\n');
 	let xList = [];
 	let yList = [];
@@ -324,9 +324,9 @@ function lineThreshold(vega, mainType, subType, value, xList, yList, csvData) {
 	return vega;
 }
 // outPut2 = JSON.stringify(lineThreshold(testVega, 'temporal', 'quantitative', 100, [2019, 2018, 2016, 2015, 2014, 2013, 2012, 2011, 2010, 2009, 2008, 2007, 2006], [102.35, 100.26, 92.98, 85.83, 84.43, 81.54, 78.38, 77.34, 76.47, 74.99, 72.2, 67.11, 62.38]))
-function getMidPoint(value1, value2, csvData,legend) {
+function getMidPoint(value1, value2, xList) {
 	let filterXList = [value1, value2]
-	let valuelist = getListSelected(csvData, legend)[0]
+	let valuelist = xList
 	let indexList = filterXList.map(element => valuelist.indexOf(element));
 	if (value1 !== -1 && value2 === -1) { return valuelist[indexList[0]] }
 	else {
@@ -353,7 +353,7 @@ function getAngle(trend) {
 function lineTrend(vega, trend, mainField, subField, mainType, subType, xList = [], value1 = -1, value2 = -1, legend = 'None', legendField = 'None', csvData) {
 	// console.log(trend)
 	let angle = getAngle(trend)
-	let midPoint = getMidPoint(value1, value2,csvData,legend)
+	let midPoint = getMidPoint(value1, value2,xList)
 	vega["layer"] = [{ 'mark': vega['mark'], 'encoding': vega['encoding'] }];
 	if (legend === 'None') {
 		let newLayer = {

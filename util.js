@@ -144,7 +144,7 @@ function highLightHelper(visID, task, vega, mainField, subField, mainType, subTy
 			}
 			if (task == 'TREND') {
 				if (newList.length >= 3) {
-					let newVega = lineTrend(vega, taskList[1], mainField, subField, mainType, subType, xList, newList[2], newList[3], taskList[2], csvData);
+					let newVega = lineTrend(vega, taskList[1], mainField, subField, mainType, subType, xList, newList[0], newList[1], taskList[2], csvData);
 					const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 					document.body.dispatchEvent(event);
 				}
