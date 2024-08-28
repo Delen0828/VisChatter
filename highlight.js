@@ -1,17 +1,107 @@
 normalize = { 'date': '', 'Date': '', 'day': '', 'Day': '', 'month': 'month', 'Month': 'month', 'year': 'year', 'Year': 'year' }
 // time_format = { 'date': 'D', 'Date': 'D', 'day': 'D', 'Day': 'D', 'month': 'M', 'Month': 'M', 'year': 'Y', 'Year': 'Y' }
-
-testVega = {
-	"$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-	"description": "Stock prices of 5 Tech Companies over Time.",
-	"data": { "url": "https://raw.githubusercontent.com/vega/vega-datasets/main/data/stocks.csv" },
-	"mark": "line",
-	"encoding": {
-		"x": { "field": "date", "type": "temporal" },
-		"y": { "field": "price", "type": "quantitative" },
-		"color": { "field": "symbol", "type": "nominal" }
-	}
-}
+// test_vega={
+// 	"config": {
+// 		"background": "#f9f9f9",
+// 		"area": {
+// 			"fill": "#ab5787"
+// 		},
+// 		"line": {
+// 			"stroke": "#ab5787"
+// 		},
+// 		"rect": {
+// 			"fill": "#ab5787"
+// 		},
+// 		"bar": {
+// 			"fill": "#ab5787"
+// 		},
+// 		"point": {
+// 			"fill": "#ab5787",
+// 			"size": 30
+// 		},
+// 		"axis": {
+// 			"domainColor": "#979797",
+// 			"domainWidth": 0.5,
+// 			"gridWidth": 0.2,
+// 			"labelColor": "#979797",
+// 			"tickColor": "#979797",
+// 			"tickWidth": 0.2,
+// 			"titleColor": "#979797"
+// 		},
+// 		"axisBand": {
+// 			"grid": false
+// 		},
+// 		"axisX": {
+// 			"grid": true,
+// 			"tickSize": 10
+// 		},
+// 		"axisY": {
+// 			"domain": false,
+// 			"grid": true,
+// 			"tickSize": 0
+// 		},
+// 		"legend": {
+// 			"labelFontSize": 11,
+// 			"padding": 1,
+// 			"symbolSize": 30,
+// 			"symbolType": "square"
+// 		},
+// 		"range": {
+// 			"category": [
+// 				"#ab5787",
+// 				"#51b2e5",
+// 				"#703c5c",
+// 				"#168dd9",
+// 				"#d190b6",
+// 				"#00609f",
+// 				"#d365ba",
+// 				"#154866",
+// 				"#666666",
+// 				"#c4c4c4"
+// 			]
+// 		}
+// 	},
+// 	"data": {
+// 		"url": "https://raw.githubusercontent.com/vis-nlp/Chart-to-text/main/statista_dataset/dataset/data/1000.csv"
+// 	},
+// 	"mark": "line",
+// 	"encoding": {
+// 		"color": {
+// 			"value": "#c4c4c4"
+// 		},
+// 		"x": {
+// 			"type": "temporal",
+// 			"axis": {
+// 				"labelAngle": -45
+// 			},
+// 			"bin": false,
+// 			"field": "Year"
+// 		},
+// 		"y": {
+// 			"type": "quantitative",
+// 			"axis": {
+// 				"title": "Ticket price in U.S. dollars"
+// 			},
+// 			"field": "Ticket price in U\\.S\\. dollars"
+// 		}
+// 	},
+// 	"title": [
+// 		"National Football League average ticket",
+// 		"price from 2006 to 2019 (in U.S. dollars)"
+// 	],
+// 	"$schema": "https://vega.github.io/schema/vega-lite/v4.8.1.json"
+// }
+// testVega = {
+// 	"$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+// 	"description": "Stock prices of 5 Tech Companies over Time.",
+// 	"data": { "url": "https://raw.githubusercontent.com/vega/vega-datasets/main/data/stocks.csv" },
+// 	"mark": "line",
+// 	"encoding": {
+// 		"x": { "field": "date", "type": "temporal" },
+// 		"y": { "field": "price", "type": "quantitative" },
+// 		"color": { "field": "symbol", "type": "nominal" }
+// 	}
+// }
 
 // testVega = { "config": { "background": "#000", "title": { "color": "#fff", "subtitleColor": "#fff" }, "style": { "guide-label": { "fill": "#fff" }, "guide-title": { "fill": "#fff" } }, "axis": { "domainColor": "#fff", "gridColor": "#888", "tickColor": "#fff" }, "range": { "category": ["#7fc97f", "#beaed4", "#fdc086", "#ffff99", "#386cb0", "#f0027f", "#bf5b17", "#666666"] } }, "data": { "url": "https://raw.githubusercontent.com/vis-nlp/Chart-to-text/main/statista_dataset/dataset/data/10030.csv" }, "mark": "bar", "encoding": { "color": { "value": "#386cb0" }, "x": { "type": "quantitative", "axis": { "labelAngle": -30, "title": "New registrations in thousands" }, "field": "New registrations in thousands" }, "y": { "type": "nominal", "axis": {}, "bin": false, "field": "programming language" } }, "title": ["Number of car registrations in Europe in", "2019 , by segment (in 1,000s)"], "$schema": "https://vega.github.io/schema/vega-lite/v4.8.1.json" }
 
@@ -408,7 +498,7 @@ function lineRange(vega, mainField, mainType, subType, value1, value2, xList, yL
 		// let minY = Math.min(...yList);
 		vega["layer"].push({
 			"mark": { "type": "rect", "color": 'black', "stroke": 'black', "fillOpacity": 0, "strokeWidth": 2 },
-			"data": { "values": [{ "PlotX1": `${xList[0]}`, "PlotX2": `${xList[xList.length - 1]}`, "PlotY1": `${value1}`, "PlotY2": `${value2}` }] },
+			"data": { "values": [{ "PlotX1": `${xList[1]}`, "PlotX2": `${xList[xList.length - 2]}`, "PlotY1": `${value1}`, "PlotY2": `${value2}` }] },
 			"encoding": {
 				"x": { "field": "PlotX1", "type": `${mainType}` },
 				"x2": { "field": "PlotX2", "type": `${mainType}` },
@@ -419,16 +509,27 @@ function lineRange(vega, mainField, mainType, subType, value1, value2, xList, yL
 		});
 	}
 	else {
-		let newcolor = getOppositeColor(vega["encoding"]["color"]["value"])
-		let filterYList = yList.filter(number => number >= smallerOf(value1, value2) && number <= biggerOf(value1, value2))
-		let indexList = filterYList.map(element => yList.indexOf(element));
-		let filterXList = indexList.map(index => xList[index]);
-		conditions = generateConditions(filterXList, mainField)
-		conditions.forEach(condition => {
-			let newLayer = JSON.parse(JSON.stringify(vega["layer"][0])); // Deep copy
-			newLayer["transform"] = [{ "filter": condition }];
-			newLayer["encoding"]["color"]["value"] = newcolor
-			vega["layer"].push(newLayer);
+		// let newcolor = getOppositeColor(vega["encoding"]["color"]["value"])
+		// let filterYList = yList.filter(number => number >= smallerOf(value1, value2) && number <= biggerOf(value1, value2))
+		// let indexList = filterYList.map(element => yList.indexOf(element));
+		// let filterXList = indexList.map(index => xList[index]);
+		// conditions = generateConditions(filterXList, mainField)
+		// conditions.forEach(condition => {
+		// 	let newLayer = JSON.parse(JSON.stringify(vega["layer"][0])); // Deep copy
+		// 	newLayer["transform"] = [{ "filter": condition }];
+		// 	newLayer["encoding"]["color"]["value"] = newcolor
+		// 	vega["layer"].push(newLayer);
+		// });
+		vega["layer"].push({
+			"mark": { "type": "rect", "color": 'black', "stroke": 'black', "fillOpacity": 0, "strokeWidth": 2 },
+			"data": { "values": [{ "PlotX1": `${xList[1]}`, "PlotX2": `${xList[xList.length - 2]}`, "PlotY1": `${value1}`, "PlotY2": `${value2}` }] },
+			"encoding": {
+				"x": { "field": "PlotX1", "type": `${mainType}` },
+				"x2": { "field": "PlotX2", "type": `${mainType}` },
+				"y": { "field": "PlotY1", "type": `${subType}` },
+				"y2": { "field": "PlotY2", "type": `${subType}` }
+			}
+
 		});
 	}
 	delete vega['mark']

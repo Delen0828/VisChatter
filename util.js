@@ -155,7 +155,7 @@ function highLightHelper(visID, task, vega, mainField, subField, mainType, subTy
 				}
 			}
 			if (task == 'RANGE') {
-				let newVega = lineRange(vega, mainField, taskList[1], taskList[2], xList, yList, isMulti, csvData);
+				let newVega = lineRange(vega, mainField,mainType, subType, taskList[1], taskList[2], xList, yList, isMulti, csvData);
 				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 				document.body.dispatchEvent(event);
 			}
@@ -189,7 +189,7 @@ function highLightHelper(visID, task, vega, mainField, subField, mainType, subTy
 				}
 			}
 			if (task == 'RANGE') {
-				let newVega = lineRange(vega, mainField, newList[0], newList[1], xList, yList);
+				let newVega = lineRange(vega, mainField,mainType,subType, taskList[1], taskList[2], xList, yList);
 				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 				document.body.dispatchEvent(event);
 			}
