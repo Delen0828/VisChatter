@@ -1,1 +1,41 @@
-{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","title":"Abubbleplotshowingthecorrelationbetweenhealthandincomefo187countriesintheworld.","width":500,"height":300,"data":{"url":"https://raw.githubusercontent.com/Delen0828/VisChattermain/gapminder.csv"},"mark":"circle","encoding":{"y":{"field":"health","type":"quantitative","scale":{"zero":false},"axis":{"minExtent":30}},"x":{"field":"income","scale":{"type":"log"}},"size":{"field":"population","type":"quantitative"},"color":{"value":"#000"}}}
+{"$schema": "https://vega.github.io/schema/vega-lite/v5.json","title": "A bubble plot showing the correlation between health and income for 187 countries in the world.","width": 500,"height": 300,"data": {"url": "https://raw.githubusercontent.com/Delen0828/VisChatter/main/gapminder.csv"},"mark": "circle","encoding": {"y": {"field": "health","type": "quantitative","scale": {"zero": false},"axis": {"minExtent": 30}},"x": {"field": "income", "scale": {"type": "log"}},"size": {"field": "population", "type": "quantitative"},"color": {"value": "#000"}}}
+
+
+{
+"$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+"description": "Support Rate for Different Political Parties Over Time",
+"width": 800,
+"data": {
+"url": "https://raw.githubusercontent.com/Delen0828/VisChatter/main/election-trimmed.csv"
+},
+"mark": "line",
+"encoding": {
+"x": {
+"field": "Date",
+"type": "ordinal",
+"axis": {
+"labelAngle": -45,
+"labelAlign": "right"
+}
+},
+"y": {
+"field": "Support Rate(%)",
+"type": "quantitative"
+},
+"color": {
+"field": "Party",
+"type": "nominal",
+"title": "Party",
+"scale": {
+"domain": [
+"Labour Coalition",
+"Free Conservative",
+"Socialist Alliance",
+"United Democratic"
+],
+"range": ["lightgreen", "lightblue", "darkgreen", "darkblue"]
+}
+}
+}
+}
+{"config": {"background": "#f9f9f9","area": {"fill": "#ab5787"},"line": {"stroke": "#ab5787"},"rect": {"fill": "#ab5787"},"bar": {"fill": "#ab5787"},"point": {"fill": "#ab5787", "size": 30},"axis": {"domainColor": "#979797","domainWidth": 0.5,"gridWidth": 0.2,"labelColor": "#979797","tickColor": "#979797","tickWidth": 0.2,"titleColor": "#979797"},"axisBand": {"grid": false},"axisX": {"grid": true, "tickSize": 10},"axisY": {"domain": false, "grid": true, "tickSize": 0},"legend": {"labelFontSize": 11,"padding": 1,"symbolSize": 30,"symbolType": "square"},"range": {"category": ["#ab5787","#51b2e5","#703c5c","#168dd9","#d190b6","#00609f","#d365ba","#154866","#666666","#c4c4c4"]}},"data": {"url": "https://raw.githubusercontent.com/vis-nlp/Chart-to-text/main/statista_dataset/dataset/data/1000.csv"},"mark": "line","encoding": {"color": {"value": "#c4c4c4"},"x": {"type": "temporal","axis": {"labelAngle": -45},"bin": false,"field": "Year"},"y": {"type": "quantitative","axis": {"title": "Ticket price in U.S. dollars"},"field": "Ticket price in U\\.S\\. dollars"}},"title": ["National Football League average ticket","price from 2006 to 2019 (in U.S. dollars)"],"$schema": "https://vega.github.io/schema/vega-lite/v4.8.1.json"}
