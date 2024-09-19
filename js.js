@@ -54,7 +54,7 @@ function callApi(spec, visID) {
 								content: [
 									{
 										type: "text",
-										text: "Given a chart image, list data facts from general to detailed. The following are some data fact examples of different kinds. #COMPARE: The ticket price shown for 2006 is just over 60 dollars, and it rises from that point to just over 100 dollars in 2018. #TREND: Viewers of Minecraft on twitch has gradually increased between 2018 and 2020. #RANGE: Consumption was fairly stable between 2000 and 2005. #FILTER: The majorly of the big cities are higher than 3 index points. #RETRIEVE: Omsk has the largest value of 3.5 index points. Please briefly respond without any # tags, and each sentence should end with a period:"
+										text: "Given a chart image, list data facts from general to detailed. The following are some data fact examples of different kinds. #COMPARE: The ticket price shown for 2006 is just over 60 dollars, and it rises from that point to just over 100 dollars in 2018. #TREND: Viewers of Minecraft on twitch has gradually increased between 2018 and 2020. #RANGE: Consumption was fairly stable between 2000 and 2005. #FILTER: The majorly of the big cities are higher than 3 index points. #RETRIEVE: Omsk has the largest value of 3.5 index points. Please respond with 3 or 4 sentences, without general description of the whole chart, without any # tags, and each sentence should end with a period:"	
 									},
 									{
 										type: "image_url",
@@ -163,53 +163,53 @@ function generateButtons(responseList, visID, spec) {
 		buttonContainer.removeChild(buttonContainer.firstChild);
 	}
 
-	const aiAssistButton = document.createElement('button');
-	aiAssistButton.classList.add('AI-sight-Button');
-	aiAssistButton.textContent = 'AI-sight';
-	//   aiAssistButton.style.backgroundColor = 'grey';
-	// Add the click event listener
-	aiAssistButton.addEventListener('mouseup', (e) => {
-		e.stopPropagation(); // Stop event propagation to prevent multiple triggers
-		if (aiAssistProcessing) {
-			return; // Skip if already processing
-		}
-		aiAssistProcessing = true;
-		// Trigger a custom event instead of handling logic here
-		const aiAssistEvent = new CustomEvent('aiAssistToggle');
-		aiAssistButton.dispatchEvent(aiAssistEvent);
+	// const aiAssistButton = document.createElement('button');
+	// aiAssistButton.classList.add('AI-sight-Button');
+	// aiAssistButton.textContent = 'AI-sight';
+	// //   aiAssistButton.style.backgroundColor = 'grey';
+	// // Add the click event listener
+	// aiAssistButton.addEventListener('mouseup', (e) => {
+	// 	e.stopPropagation(); // Stop event propagation to prevent multiple triggers
+	// 	if (aiAssistProcessing) {
+	// 		return; // Skip if already processing
+	// 	}
+	// 	aiAssistProcessing = true;
+	// 	// Trigger a custom event instead of handling logic here
+	// 	const aiAssistEvent = new CustomEvent('aiAssistToggle');
+	// 	aiAssistButton.dispatchEvent(aiAssistEvent);
 
-		// Reset the flag after a short delay
-		setTimeout(() => {
-			aiAssistProcessing = false;
-		}, 100); // Adjust the delay as needed
-	});
+	// 	// Reset the flag after a short delay
+	// 	setTimeout(() => {
+	// 		aiAssistProcessing = false;
+	// 	}, 100); // Adjust the delay as needed
+	// });
 
-	// Add a listener for the custom event
-	aiAssistButton.addEventListener('aiAssistToggle', (e) => {
-		aiAssistActive = !aiAssistActive;
-		console.log('AI-sight Active:', aiAssistActive); // Logging the state
-		if (aiAssistActive) {
-			aiAssistButton.style.backgroundColor = '#f2ca3a';
-			// Generate the response buttons
-			responseList.forEach((response, index) => {
-				const button = document.createElement('button');
-				button.classList.add('Response-Button');
-				button.textContent = responseList[index];
-				button.addEventListener('mouseup', () => {
-					aiAssistActive = false;
-					highLight(responseList[index], visID, spec);
-					aiAssistButton.style.backgroundColor = '#787878'
-					toggleButtonsVisibility(false);
-				});
-				buttonContainer.appendChild(button);
-			});
-		} else {
+	// // Add a listener for the custom event
+	// aiAssistButton.addEventListener('aiAssistToggle', (e) => {
+	// 	aiAssistActive = !aiAssistActive;
+	// 	console.log('AI-sight Active:', aiAssistActive); // Logging the state
+	// 	if (aiAssistActive) {
+	// 		aiAssistButton.style.backgroundColor = '#f2ca3a';
+	// 		// Generate the response buttons
+	responseList.forEach((response, index) => {
+		const button = document.createElement('button');
+		button.classList.add('Response-Button');
+		button.textContent = responseList[index];
+		button.addEventListener('mouseup', () => {
+			aiAssistActive = false;
+			highLight(responseList[index], visID, spec);
 			aiAssistButton.style.backgroundColor = '#787878'
 			toggleButtonsVisibility(false);
-		}
+		});
+		buttonContainer.appendChild(button);
 	});
+	// 	} else {
+	// 		aiAssistButton.style.backgroundColor = '#787878'
+	// 		toggleButtonsVisibility(false);
+	// 	}
+	// });
 
-	buttonContainer.appendChild(aiAssistButton);
+	// buttonContainer.appendChild(aiAssistButton);
 }
 
 function toggleButtonsVisibility(show) {
