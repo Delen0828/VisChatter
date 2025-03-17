@@ -25,71 +25,72 @@ function getResponse(str) {
 }
 const openai_yek = "&#66;&#101;&#97;&#114;&#101;&#114;&#32;&#115;&#107;&#45;&#112;&#114;&#111;&#106;&#45;&#51;&#50;&#107;&#119;&#111;&#121;&#114;&#51;&#105;&#104;&#121;&#76;&#90;&#107;&#85;&#105;&#88;&#84;&#113;&#113;&#77;&#71;&#111;&#82;&#109;&#117;&#73;&#49;&#65;&#115;&#66;&#107;&#77;&#122;&#106;&#112;&#81;&#108;&#113;&#114;&#72;&#108;&#75;&#118;&#79;&#88;&#69;&#120;&#118;&#88;&#77;&#55;&#109;&#116;&#65;&#50;&#100;&#71;&#84;&#51;&#66;&#108;&#98;&#107;&#70;&#74;&#118;&#110;&#102;&#45;&#106;&#99;&#84;&#86;&#90;&#118;&#69;&#68;&#122;&#68;&#65;&#86;&#75;&#75;&#69;&#56;&#53;&#117;&#73;&#48;&#79;&#105;&#109;&#105;&#121;&#110;&#56;&#79;&#77;&#85;&#84;&#115;&#87;&#53;&#112;&#104;&#76;&#49;&#88;&#80;&#120;&#48;&#111;&#119;&#51;&#48;&#51;&#90;&#98;&#55;&#53;&#114;&#115;&#65;"
 function callApi(spec, visID) {
+	vlSpecDict[visID] = spec;
 	// console.log(spec)
-	vegaEmbed('#visPlayground', JSON.parse(spec)).then(result => {
-		const view = result.view;
-		// Convert Vega view to Canvas
-		view.toCanvas()
-			.then(function (canvas) {
-				const canvasElement = document.getElementById('canvas');
-				canvasElement.width = canvas.width;
-				canvasElement.height = canvas.height;
-				const ctx = canvasElement.getContext('2d');
-				ctx.drawImage(canvas, 0, 0);
-				// Convert canvas to JPEG and get the Base64 string
-				const base64Image = canvasElement.toDataURL('image/jpeg').split(',')[1];
-				// console.log("Base64 Encoded JPEG:", base64Image);
-				// Make the API call using the Base64-encoded image
-				fetch("https://api.openai.com/v1/chat/completions", {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						"Authorization": decodeAsciiString(openai_yek)
-					},
-					body: JSON.stringify({
-						model: "gpt-4o-mini",
-						messages: [
-							{
-								role: "user",
-								content: [
-									{
-										type: "text",
-										text: "Given a chart image, list data facts from general to detailed. The following are some data fact examples of different kinds. #COMPARE: The ticket price shown for 2006 is just over 60 dollars, and it rises from that point to just over 100 dollars in 2018. #TREND: Viewers of Minecraft on twitch has gradually increased between 2018 and 2020. #RANGE: Consumption was fairly stable between 2000 and 2005. #FILTER: The majorly of the big cities are higher than 3 index points. #RETRIEVE: Omsk has the largest value of 3.5 index points. Please respond with 3 or 4 sentences, without general description of the whole chart, without any # tags, and each sentence should end with a period:"	
-									},
-									{
-										type: "image_url",
-										image_url: {
-											url: `data:image/jpeg;base64,${base64Image}`,
-											detail: "low"
-										}
-									}
-								]
-							}
-						],
-						max_tokens: 200,
-						temperature: 0
-					})
-				})
-					.then(response => response.json())
-					.then(data => {
-						// console.log(data);
-						// let response = JSON.stringify(data["generated_text"], null, 2);
-						// console.log(response);
-						let response = data['choices'][0]['message']['content']
-						apiResponseDict[visID] = response;
-						vlSpecDict[visID] = spec;
-						let responseList = response.split('. ').filter(Boolean)
-						apiResponseDict[visID] = responseList
-						generateButtons(responseList, visID, spec);
-					})
-					.catch(error => {
-						console.log(`Error calling API: ${error.message}`);
-					});
-			})
-			.catch(function (error) {
-				console.error("Error converting Vega-Lite spec to canvas:", error);
-			});
-	}).catch(console.error);
+	// vegaEmbed('#visPlayground', JSON.parse(spec)).then(result => {
+		// const view = result.view;
+		// // Convert Vega view to Canvas
+		// view.toCanvas()
+		// 	.then(function (canvas) {
+		// 		const canvasElement = document.getElementById('canvas');
+		// 		canvasElement.width = canvas.width;
+		// 		canvasElement.height = canvas.height;
+		// 		const ctx = canvasElement.getContext('2d');
+		// 		ctx.drawImage(canvas, 0, 0);
+		// 		// Convert canvas to JPEG and get the Base64 string
+		// 		const base64Image = canvasElement.toDataURL('image/jpeg').split(',')[1];
+		// 		// console.log("Base64 Encoded JPEG:", base64Image);
+		// 		// Make the API call using the Base64-encoded image
+		// 		fetch("https://api.openai.com/v1/chat/completions", {
+		// 			method: "POST",
+		// 			headers: {
+		// 				"Content-Type": "application/json",
+		// 				"Authorization": decodeAsciiString(openai_yek)
+		// 			},
+		// 			body: JSON.stringify({
+		// 				model: "gpt-4o-mini",
+		// 				messages: [
+		// 					{
+		// 						role: "user",
+		// 						content: [
+		// 							{
+		// 								type: "text",
+		// 								text: "Given a chart image, list data facts from general to detailed. The following are some data fact examples of different kinds. #COMPARE: The ticket price shown for 2006 is just over 60 dollars, and it rises from that point to just over 100 dollars in 2018. #TREND: Viewers of Minecraft on twitch has gradually increased between 2018 and 2020. #RANGE: Consumption was fairly stable between 2000 and 2005. #FILTER: The majorly of the big cities are higher than 3 index points. #RETRIEVE: Omsk has the largest value of 3.5 index points. Please respond with 3 or 4 sentences, without general description of the whole chart, without any # tags, and each sentence should end with a period:"	
+		// 							},
+		// 							{
+		// 								type: "image_url",
+		// 								image_url: {
+		// 									url: `data:image/jpeg;base64,${base64Image}`,
+		// 									detail: "low"
+		// 								}
+		// 							}
+		// 						]
+		// 					}
+		// 				],
+		// 				max_tokens: 200,
+		// 				temperature: 0
+		// 			})
+		// 		})
+		// 			.then(response => response.json())
+		// 			.then(data => {
+		// 				// console.log(data);
+		// 				// let response = JSON.stringify(data["generated_text"], null, 2);
+		// 				// console.log(response);
+		// 				let response = data['choices'][0]['message']['content']
+		// 				apiResponseDict[visID] = response;
+		// 				vlSpecDict[visID] = spec;
+		// 				let responseList = response.split('. ').filter(Boolean)
+		// 				apiResponseDict[visID] = responseList
+		// 				// generateButtons(responseList, visID, spec);
+		// 			})
+		// 			.catch(error => {
+		// 				console.log(`Error calling API: ${error.message}`);
+		// 			});
+		// 	})
+		// 	.catch(function (error) {
+		// 		console.error("Error converting Vega-Lite spec to canvas:", error);
+		// 	});
+	// }).catch(console.error);
 }
 
 
@@ -157,11 +158,11 @@ function getColumn(csvData) {
 let aiAssistActive = false;
 let aiAssistProcessing = false;
 
-function generateButtons(responseList, visID, spec) {
-	const buttonContainer = document.getElementById('buttonContainer');
-	while (buttonContainer.firstChild) {
-		buttonContainer.removeChild(buttonContainer.firstChild);
-	}
+// function generateButtons(responseList, visID, spec) {
+// 	const buttonContainer = document.getElementById('buttonContainer');
+// 	while (buttonContainer.firstChild) {
+// 		buttonContainer.removeChild(buttonContainer.firstChild);
+// 	}
 
 	// const aiAssistButton = document.createElement('button');
 	// aiAssistButton.classList.add('AI-sight-Button');
@@ -191,18 +192,18 @@ function generateButtons(responseList, visID, spec) {
 	// 	if (aiAssistActive) {
 	// 		aiAssistButton.style.backgroundColor = '#f2ca3a';
 	// 		// Generate the response buttons
-	responseList.forEach((response, index) => {
-		const button = document.createElement('button');
-		button.classList.add('Response-Button');
-		button.textContent = responseList[index];
-		button.addEventListener('mouseup', () => {
-			aiAssistActive = false;
-			highLight(responseList[index], visID, spec);
-			aiAssistButton.style.backgroundColor = '#787878'
-			toggleButtonsVisibility(false);
-		});
-		buttonContainer.appendChild(button);
-	});
+	// responseList.forEach((response, index) => {
+	// 	const button = document.createElement('button');
+	// 	button.classList.add('Response-Button');
+	// 	button.textContent = responseList[index];
+	// 	button.addEventListener('mouseup', () => {
+	// 		aiAssistActive = false;
+	// 		highLight(responseList[index], visID, spec);
+	// 		aiAssistButton.style.backgroundColor = '#787878'
+	// 		toggleButtonsVisibility(false);
+	// 	});
+	// 	buttonContainer.appendChild(button);
+	// });
 	// 	} else {
 	// 		aiAssistButton.style.backgroundColor = '#787878'
 	// 		toggleButtonsVisibility(false);
@@ -210,7 +211,7 @@ function generateButtons(responseList, visID, spec) {
 	// });
 
 	// buttonContainer.appendChild(aiAssistButton);
-}
+// }
 
 function toggleButtonsVisibility(show) {
 	const buttons = document.querySelectorAll('.Response-Button');

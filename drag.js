@@ -59,10 +59,11 @@ function makeDraggable(element) {
 function makeSelectable(element) {
   element.addEventListener('mousedown', (e) => {
 	// Remove all buttons of AI-sight
-	const buttonContainer = document.getElementById('buttonContainer');
-	while (buttonContainer.firstChild) {
-		buttonContainer.removeChild(buttonContainer.firstChild);
-	}
+	// const buttonContainer = document.getElementById('buttonContainer');
+	// while (buttonContainer.firstChild) {
+	// 	buttonContainer.removeChild(buttonContainer.firstChild);
+	// }
+	
     // Call startSpeechRecognition with the uniqueId
     let uniqueId = element.id;
     let vlSpec = element.getAttribute('data-vl-spec');
@@ -88,6 +89,6 @@ function makeSelectable(element) {
 	let spec = element.getAttribute('data-vl-spec');
 	// let aiAssistActive = false;
 	// let aiAssistProcessing = false; 
-	generateButtons(responseList, visID, spec) 
+	// generateButtons(responseList, visID, spec) 
   });
 }

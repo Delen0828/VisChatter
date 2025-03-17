@@ -26,7 +26,7 @@ function renderVegaLite(spec) {
   } catch (error) {
     newDiv.innerHTML = `<p style="color: red;">Error rendering chart: ${error.message}</p>`;
   }  
-  // Get the AI generated description 
+  // Get the AI generated description (deceperated)
   callApi(spec,uniqueId);
   // Make the new div draggable and selectable
   makeDraggable(newDiv);
