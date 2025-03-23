@@ -58,12 +58,6 @@ function makeDraggable(element) {
 
 function makeSelectable(element) {
   element.addEventListener('mousedown', (e) => {
-	// Remove all buttons of AI-sight
-	// const buttonContainer = document.getElementById('buttonContainer');
-	// while (buttonContainer.firstChild) {
-	// 	buttonContainer.removeChild(buttonContainer.firstChild);
-	// }
-	
     // Call startSpeechRecognition with the uniqueId
     let uniqueId = element.id;
     let vlSpec = element.getAttribute('data-vl-spec');
@@ -79,16 +73,82 @@ function makeSelectable(element) {
     stopSpeechRecognition();
     // Remove the 'selected' class from all elements
     document.querySelectorAll('.draggable-chart').forEach(div => {
-      div.classList.remove('selected');
+    div.classList.remove('selected');
       // Reset border for all elements
-      div.style.border = '0px solid #ccc';
+	div.style.border = '0px solid #ccc';
     });
-	//Add buttons to AI-sight
-	let visID=element.id
-	let responseList=apiResponseDict[visID]
-	let spec = element.getAttribute('data-vl-spec');
-	// let aiAssistActive = false;
-	// let aiAssistProcessing = false; 
-	// generateButtons(responseList, visID, spec) 
   });
 }
+
+// const recordButton = document.getElementById('recordButton');
+// let isRecording = false;
+
+// recordButton.addEventListener('click', () => {
+//   if (!isRecording) {
+//     // Start speech recognition
+//     startSpeechRecognition();
+//     isRecording = true;
+//     recordButton.textContent = '🛑 Stop';
+//     recordButton.classList.add('active');
+//   } else {
+//     // Stop speech recognition
+//     stopSpeechRecognition();
+//     isRecording = false;
+//     recordButton.textContent = '🎤 Record';
+//     recordButton.classList.remove('active');
+//   }
+// });
+// function makeHoverable(element) {
+//   // Ensure the parent element is absolutely positioned
+//   element.style.position = 'absolute';
+
+//   // Create a record button and append it to the element
+//   const recordButton = document.createElement('button');
+//   recordButton.textContent = '🎤 Record';
+//   recordButton.style.position = 'absolute';
+//   recordButton.style.top = '-30px'; // Position above the element
+//   recordButton.style.left = '50%'; // Center horizontally
+//   recordButton.style.transform = 'translateX(-50%)';
+//   recordButton.style.padding = '5px 10px';
+//   recordButton.style.border = 'none';
+//   recordButton.style.borderRadius = '5px';
+//   recordButton.style.backgroundColor = '#5cae5f';
+//   recordButton.style.color = '#fff';
+//   recordButton.style.cursor = 'pointer';
+//   recordButton.style.display = 'none'; // Initially hidden
+//   recordButton.style.zIndex = '10';
+//   element.appendChild(recordButton);
+
+//   // Add hover event listeners
+//   element.addEventListener('mouseenter', () => {
+//     element.classList.add('hovered'); // Add 'hovered' class
+//     recordButton.style.display = 'block'; // Show the record button
+//   });
+
+//   element.addEventListener('mouseleave', () => {
+//     element.classList.remove('hovered'); // Remove 'hovered' class
+//     recordButton.style.display = 'none'; // Hide the record button
+//   });
+
+//   // Add click event listener to the record button
+//   let isRecording = false;
+//   recordButton.addEventListener('click', (e) => {
+//     e.stopPropagation(); // Prevent click from propagating to the element
+//     let uniqueId = element.id;
+//     let vlSpec = element.getAttribute('data-vl-spec');
+
+//     if (!isRecording) {
+//       // Start speech recognition
+//       startSpeechRecognition(vlSpec, uniqueId);
+//       isRecording = true;
+//       recordButton.textContent = '🛑 Stop';
+//       recordButton.style.backgroundColor = '#ff4d4d';
+//     } else {
+//       // Stop speech recognition
+//       stopSpeechRecognition();
+//       isRecording = false;
+//       recordButton.textContent = '🎤 Record';
+//       recordButton.style.backgroundColor = '#5cae5f';
+//     }
+//   });
+// }

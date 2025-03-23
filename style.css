@@ -29,10 +29,20 @@ body {
     height: 70%;
     background-color: #f0f0f0;
     border-radius: 10px;
-    /* padding: 20px; */
+    padding: 10px; /* Add padding to the container */
     display: flex;
-    justify-content: center;
-    align-items: center;
+    flex-direction: column; /* Stack messages vertically */
+    overflow-y: auto; /* Enable scrolling if content overflows */
+}
+
+/* Individual message styling */
+#right-panel div {
+    text-align: left; /* Align messages to the left */
+    margin-bottom: 10px; /* Add spacing between messages */
+    padding: 8px; /* Add padding inside each message */
+    background-color: #ffffff; /* Add a background color for messages */
+    border-radius: 5px; /* Round the corners of messages */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Add a subtle shadow */
 }
 
 /* Adjust vis-container to make space for the right panel */
@@ -210,6 +220,7 @@ label {
 	flex-direction: column;
 	padding: 10px;
 }
+
 
 /* Responsive handling */
 @media (max-width: 600px) {

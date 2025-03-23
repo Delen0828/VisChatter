@@ -1,6 +1,7 @@
 const visContainer = document.getElementById('vis');
 makeDraggable(visContainer);
 makeSelectable(visContainer);
+makeHoverable(visContainer);
 enableRightClickRemoval(visContainer);
 
 document.body.addEventListener('mouseup', () => {
@@ -31,6 +32,7 @@ function renderVegaLite(spec) {
   // Make the new div draggable and selectable
   makeDraggable(newDiv);
   makeSelectable(newDiv);
+  makeHoverable(newDiv);
   enableRightClickRemoval(newDiv)
 }
 

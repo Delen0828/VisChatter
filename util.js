@@ -225,80 +225,90 @@ function highLightHelper(visID, task, vega, mainField, subField, mainType, subTy
 }
 const TEMP = 0.2
 const promptMsg = {
-	model: "ft:gpt-4o-mini-2024-07-18:personal:vischatter-finetune-0225-final-mini:B4wfEQS4",  
+	model: "ft:gpt-4o-mini-2024-07-18:personal:vischatter-finetune-0319:BCsQ8ZTt",  
 	messages: [
 		{"role": "system", "content": "You are a precise labeling assistant. Return only the label and key-values without explanation."},
-		{"role": "user", "content": `Label the **CAPTION** based on the following **tasks** and extract key-values accordingly:
+		{"role": "user", "content": `
+		
+		Your duty is to label the <caption> based on the following <task> and extract key-values accordingly from <data>.
 
-**Tasks:**
-- **RETRIEVE**: Extract 1+ key-values (x-axis only).
-- **COMPARE**: Compare 2+ key-values (x-axis only).
-- **FILTER**: Extract 1 key-value (y-axis only).
-- **TREND^**: Increasing trend, 2 key-values (x-axis only).
-- **TREND-**: Stable trend, 2 key-values (x-axis only).
-- **TRENDv**: Decreasing trend, 2 key-values (x-axis only).
-- **RANGE**: Extract 2 key-values (y-axis only).
+		The <caption> can be classified as the following 7 <task>
+		<task> RETRIEVE </task>: Extract 1+ key-values (x-axis only). e.g. 'The highest value is 100' = RETRIEVE
+		<task> COMPARE </task>: Compare 2+ key-values (x-axis only). e.g. 'A is highest, B is lowest' = COMPARE
+		<task> FILTER </task>: Extract 1 key-value (y-axis only). e.g. 'The values are higher than 100' = FILTER
+		<task> TREND^ </task>: Increasing trend, 2 key-values (x-axis only). e.g. 'The values are increasing from 2010 to 2020' = TREND^
+		<task> TREND- </task>: Stable trend, 2 key-values (x-axis only). e.g. 'The values are stable from 2010 to 2020' = TREND-
+		<task> TRENDv </task>: Decreasing trend, 2 key-values (x-axis only). e.g. 'The values are decreasing from 2010 to 2020' = TRENDv
+		<task> RANGE </task>: Extract 2 key-values (y-axis only). e.g. 'The values are between 100 and 200' = RANGE
 
-**Rules:**
-0. **Determine Axes First**: Identify which column represents the x-axis and which represents the y-axis before extracting key-values. Do not explain this step.
-1. **Axis Constraint**: RETRIEVE, COMPARE, and TREND use x-axis values; FILTER and RANGE use y-axis values.
-2. **RETRIEVE vs. COMPARE**: RETRIEVE lists values; COMPARE highlights differences (e.g., 'A is highest, B is lowest' = COMPARE, 'A and B are the highest' = RETRIEVE).
-3. **FILTER & RANGE Scaling**: Adjust values based on source units (e.g., '2 million' → '2' if unit is million, '2000' if thousand).
-4. **Prioritize**: Identify the most important data fact.
-5. **TREND Default Years**: If a TREND type fact does not specify certain years (e.g., 'overall increase'), use the first and last year from **DATA**.
-6. **Strict Data Extraction**: Use key-values exactly as they appear in **DATA**. Do not expand abbreviations (if the extracted value is 'Jan', do not make it 'January'), correct misspellings, or modify extracted values (if the extracted value is 'US', do not make it 'USA').
+		Follow the following 4 steps when you label and extract:
+		Step 1: Identify the most important data fact from the <caption> 
+		Step 2: Label the data fact with one <task> based on what analytic task it
+		Step 3: Identify which column represents the x-axis and  y-axis from <data> 
+		Step 4: Retrieve key values from <data> mentioned in <caption> based on the following 3 rules
 
-` }, // Using the target message here
+		Follow the 3 rules in Step 4:
+		Rule 1: Key values of <task> RETRIEVE </task>, <task>COMPARE</task>, <task>TREND-</task>,<task>TREND^</task>,<task>TRENDv</task> are x-axis values; Key values of <task> FILTER </task> and <task> RANGE </task> use y-axis values.
+		Rule 2: <task>RETRIEVE</task> lists values; <task>COMPARE</task> highlights differences (e.g., 'A is highest, B is lowest' = COMPARE, 'A and B are the highest' = RETRIEVE)
+		Rule 3: Extract the first and last year from the x-axis column of <data> if there is no certain years specified in <task> Trend- </task>, <task> Trend^ <task>, <task> Trendv <task> (e.g., 'overall increase')
+		Rule 4: Do not change the value extracted from <data> (e.g. <caption> says 'The highest value is 100' but <data> says '100*, 99* ...', you should extract 100* as the key value)
+		
+		` }, // Using the target message here
 	],
 	temperature: TEMP
 }
-
 function getPrompt(chartType, isMulti, target) {
 	let newPromptMsg = JSON.parse(JSON.stringify(promptMsg));
-	newPromptMsg['messages'][1]['content'] += target + '\n\n';
+	newPromptMsg['messages'][1]['content'] +=  `The actual <caption> and <data> are given below.
+	<caption>`+target +'</caption>';
 	return newPromptMsg;
 }
 
 function highLight(response, visID, spec) {
-	const target = response;
-	const speechResult = document.getElementById('right-panel');
-	
-	fetch(JSON.parse(spec)["data"]["url"])
-		.then(response => response.text())
-		.then(csvData => {
-			let [xList, yList, legendList, isMulti] = getColumn(csvData);
-			let chartType = JSON.parse(spec)["mark"]
-			let prompt = getPrompt(chartType, isMulti, target);
-			
-			prompt.messages[1]['content'] += `**DATA**:\n${csvData}`;
-			
-			let payload = {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
+    const target = response;
+    const speechResult = document.getElementById('right-panel');
+    
+    fetch(JSON.parse(spec)["data"]["url"])
+        .then(response => response.text())
+        .then(csvData => {
+            let [xList, yList, legendList, isMulti] = getColumn(csvData);
+            let chartType = JSON.parse(spec)["mark"];
+            let prompt = getPrompt(chartType, isMulti, target);
+            
+            prompt.messages[1]['content'] += `<data> ${csvData} </data>
+            Please label <caption> and extract from <data>. The response should be given as a python list:`;
+            
+            let payload = {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
 					"Authorization": decodeAsciiString(openai_yek),
-				},
-				body: JSON.stringify(prompt)
-			}
-			
-			fetch("https://api.openai.com/v1/chat/completions", payload)
-				.then(response => response.json())
-				.then(data => {
-					let taskList = data.choices[0].message.content
-						.replace(/[\[\]']/g, '')
-						.split(', ')
-						.map(item => item.trim());
-					let vega = JSON.parse(vlSpecDict[visID]);
-					let fieldAndType = getMainSubFieldType(vega);
-					let mainField = fieldAndType[0];
-					let mainType = fieldAndType[1];
-					let subField = fieldAndType[2];
-					let subType = fieldAndType[3];
-					let newList = taskList.slice(1);
-					console.log('task: ', taskList[0])
-					speechResult.textContent = `${response}`;
-					
-					highLightHelper(visID, taskList[0], vega, mainField, subField, mainType, subType, newList, xList, yList, taskList, legendList, isMulti, csvData)
-				});
-		});
+                },
+                body: JSON.stringify(prompt)
+            };
+            
+            fetch("https://api.openai.com/v1/chat/completions", payload)
+                .then(response => response.json())
+                .then(data => {
+                    let taskList = data.choices[0].message.content
+                        .replace(/[\[\]']/g, '')
+                        .split(', ')
+                        .map(item => item.trim());
+                    let vega = JSON.parse(vlSpecDict[visID]);
+                    let fieldAndType = getMainSubFieldType(vega);
+                    let mainField = fieldAndType[0];
+                    let mainType = fieldAndType[1];
+                    let subField = fieldAndType[2];
+                    let subType = fieldAndType[3];
+                    let newList = taskList.slice(1);
+                    console.log('task: ', taskList[0]);
+
+                    // Append the new response to the existing content in the right-panel
+                    const newMessage = document.createElement('div');
+                    newMessage.textContent = `${response}`;
+                    speechResult.appendChild(newMessage);
+
+                    highLightHelper(visID, taskList[0], vega, mainField, subField, mainType, subType, newList, xList, yList, taskList, legendList, isMulti, csvData);
+                });
+        });
 }
