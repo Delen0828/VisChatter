@@ -59,6 +59,7 @@ function makeDraggable(element) {
 function makeSelectable(element) {
   element.addEventListener('mousedown', (e) => {
     // Call startSpeechRecognition with the uniqueId
+	if (e.button !== 0) return; // Only handle left-click
     let uniqueId = element.id;
     let vlSpec = element.getAttribute('data-vl-spec');
     startSpeechRecognition(vlSpec, uniqueId);
@@ -70,6 +71,7 @@ function makeSelectable(element) {
   });
 
   element.addEventListener('mouseup', function () {
+	// if (e.button !== 0) return; // Only handle left-click
     stopSpeechRecognition();
     // Remove the 'selected' class from all elements
     document.querySelectorAll('.draggable-chart').forEach(div => {

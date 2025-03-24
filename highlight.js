@@ -510,6 +510,7 @@ function scatterHighlightOne(vega, mainField, subField, value) {
 	delete vega['encoding']
 	return vega;
 }
+
 // outPut1 = JSON.stringify(scatterHighlightOne(testVega, "Horsepower", "Miles_per_Gallon", 45))
 
 function scatterCompareTwo(vega, mainField, subField, value1, value2) {

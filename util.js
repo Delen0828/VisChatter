@@ -252,6 +252,8 @@ const promptMsg = {
 		Rule 2: <task>RETRIEVE</task> lists values; <task>COMPARE</task> highlights differences (e.g., 'A is highest, B is lowest' = COMPARE, 'A and B are the highest' = RETRIEVE)
 		Rule 3: Extract the first and last year from the x-axis column of <data> if there is no certain years specified in <task> Trend- </task>, <task> Trend^ <task>, <task> Trendv <task> (e.g., 'overall increase')
 		Rule 4: Do not change the value extracted from <data> (e.g. <caption> says 'The highest value is 100' but <data> says '100*, 99* ...', you should extract 100* as the key value)
+		Rule 5: If "correlation" is mentioned, <task> will always be <task> TREND^ </task>.
+		Rule 6: <task> RETRIEVE </task> is never used if <data> has more than 2 columns.
 		
 		` }, // Using the target message here
 	],
