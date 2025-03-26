@@ -94,33 +94,38 @@ document.body.addEventListener('vl-spec', (e) => {
 	}
 });
 
-
+// 添加全局字典用于存储消息与注释代码的映射关系
+const messageAnnotationMap = {};
+// 保存原始的可视化数据，用于重置
+const originalVisualizations = {};
 
 function highLightHelper(visID, task, vega, mainField, subField, mainType, subType, newList, xList, yList, taskList, legendList, isMulti, csvData) {
 	console.log('newList',newList)
+	let newVega;
+	
 	if (vega["mark"] == 'bar') {
 		if (task == 'RETRIEVE') {
-			let newVega = barHighlightOne(vega, mainField, newList[0]);
+			newVega = barHighlightOne(vega, mainField, newList[0]);
 			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 			document.body.dispatchEvent(event);
 		}
 		if (task == 'COMPARE') {
-			let newVega = barCompareTwo(vega, mainField, newList[0], newList[1]);
+			newVega = barCompareTwo(vega, mainField, newList[0], newList[1]);
 			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 			document.body.dispatchEvent(event);
 		}
 		if (task == 'FILTER') {
-			let newVega = barThreshold(vega, subField, taskList[1]);
+			newVega = barThreshold(vega, subField, taskList[1]);
 			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 			document.body.dispatchEvent(event);
 		}
 		if (task == 'TREND-' || task == 'TRENDv' || task == 'TREND^') {
-			let newVega = barTrend(vega, mainType, taskList[1], taskList[2]);
+			newVega = barTrend(vega, mainType, taskList[1], taskList[2]);
 			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 			document.body.dispatchEvent(event);
 		}
 		if (task == 'RANGE') {
-			let newVega = barRange(vega, subField, taskList[1], newList[2]);
+			newVega = barRange(vega, subField, taskList[1], newList[2]);
 			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 			document.body.dispatchEvent(event);
 		}
@@ -128,68 +133,68 @@ function highLightHelper(visID, task, vega, mainField, subField, mainType, subTy
 	if (vega["mark"] == 'line' || vega["mark"] == 'area') {
 		if (isMulti) {
 			if (task == 'RETRIEVE') {
-				let newVega = lineHighlightOne(vega, mainField, mainType, newList[0], xList, isMulti, taskList[2], 'symbol', csvData); //TODO:change this to retrieval
+				newVega = lineHighlightOne(vega, mainField, mainType, newList[0], xList, isMulti, taskList[2], 'symbol', csvData); //TODO:change this to retrieval
 				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 				document.body.dispatchEvent(event);
 			}
 			if (task == 'COMPARE') {
-				let newVega = lineCompareTwo(vega, mainField, mainType, newList[0], newList[1], xList, isMulti, taskList[3], taskList[4], 'symbol', csvData);
+				newVega = lineCompareTwo(vega, mainField, mainType, newList[0], newList[1], xList, isMulti, taskList[3], taskList[4], 'symbol', csvData);
 				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 				document.body.dispatchEvent(event);
 			}
 			if (task == 'FILTER') {
-				let newVega = lineThreshold(vega, mainType, subType, newList[0], xList, yList, csvData);
+				newVega = lineThreshold(vega, mainType, subType, newList[0], xList, yList, csvData);
 				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 				document.body.dispatchEvent(event);
 			}
 			if (task == 'TREND-' || task == 'TRENDv' || task == 'TREND^') {
 				if (newList.length >= 3) {
-					let newVega = lineTrend(vega, taskList[0], mainField, subField, mainType, subType, xList, newList[0], newList[1], taskList[2], csvData);
+					newVega = lineTrend(vega, taskList[0], mainField, subField, mainType, subType, xList, newList[0], newList[1], taskList[2], csvData);
 					const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 					document.body.dispatchEvent(event);
 				}
 				else {
-					let newVega = lineTrend(vega, taskList[0], mainField, subField, mainType, subType, xList, value1 = -1, value2 = -1, taskList[2], 'symbol', csvData);
+					newVega = lineTrend(vega, taskList[0], mainField, subField, mainType, subType, xList, value1 = -1, value2 = -1, taskList[2], 'symbol', csvData);
 					const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 					document.body.dispatchEvent(event);
 				}
 			}
 			if (task == 'RANGE') {
-				let newVega = lineRange(vega, mainField,mainType, subType, taskList[1], taskList[2], xList, yList, isMulti, csvData);
+				newVega = lineRange(vega, mainField,mainType, subType, taskList[1], taskList[2], xList, yList, isMulti, csvData);
 				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 				document.body.dispatchEvent(event);
 			}
 		}
 		else {
 			if (task == 'RETRIEVE') {
-				let newVega = lineHighlightOne(vega, mainField, mainType, newList[0], xList);
+				newVega = lineHighlightOne(vega, mainField, mainType, newList[0], xList);
 				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 				document.body.dispatchEvent(event);
 			}
 			if (task == 'COMPARE') {
-				let newVega = lineCompareTwo(vega, mainField, mainType, newList[0], newList[1], xList);
+				newVega = lineCompareTwo(vega, mainField, mainType, newList[0], newList[1], xList);
 				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 				document.body.dispatchEvent(event);
 			}
 			if (task == 'FILTER') {
-				let newVega = lineThreshold(vega, mainType, subType, newList[0], xList, yList);
+				newVega = lineThreshold(vega, mainType, subType, newList[0], xList, yList);
 				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 				document.body.dispatchEvent(event);
 			}
 			if (task == 'TREND-' || task == 'TRENDv' || task == 'TREND^') {
 				if (newList.length >= 3) {
-					let newVega = lineTrend(vega, taskList[0], mainField, subField, mainType, subType, xList, newList[1], newList[2]);
+					newVega = lineTrend(vega, taskList[0], mainField, subField, mainType, subType, xList, newList[1], newList[2]);
 					const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 					document.body.dispatchEvent(event);
 				}
 				else {
-					let newVega = lineTrend(vega, taskList[0], mainField, subField, mainType, subType, xList);
+					newVega = lineTrend(vega, taskList[0], mainField, subField, mainType, subType, xList);
 					const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 					document.body.dispatchEvent(event);
 				}
 			}
 			if (task == 'RANGE') {
-				let newVega = lineRange(vega, mainField,mainType,subType, taskList[1], taskList[2], xList, yList);
+				newVega = lineRange(vega, mainField,mainType,subType, taskList[1], taskList[2], xList, yList);
 				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 				document.body.dispatchEvent(event);
 			}
@@ -197,31 +202,34 @@ function highLightHelper(visID, task, vega, mainField, subField, mainType, subTy
 	}
 	if (vega["mark"] == "circle") {
 		if (task == 'RETRIEVE') {
-			let newVega = scatterHighlightOne(vega, mainField, subField, taskList[1]);
+			newVega = scatterHighlightOne(vega, mainField, subField, taskList[1]);
 			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 			document.body.dispatchEvent(event);
 		}
 		if (task == 'COMPARE') {
-			let newVega = scatterCompareTwo(vega, mainField, subField, taskList[1], taskList[2]);
+			newVega = scatterCompareTwo(vega, mainField, subField, taskList[1], taskList[2]);
 			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 			document.body.dispatchEvent(event);
 		}
 		if (task == 'FILTER') {
-			let newVega = scatterThreshold(vega, subField, taskList[1]);
+			newVega = scatterThreshold(vega, subField, taskList[1]);
 			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 			document.body.dispatchEvent(event);
 		}
 		if (task == 'TREND-' || task == 'TRENDv' || task == 'TREND^') {
-			let newVega = scatterTrend(vega, mainField, subField);
+			newVega = scatterTrend(vega, mainField, subField);
 			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 			document.body.dispatchEvent(event);
 		}
 		if (task == 'RANGE') {
-			let newVega = scatterRange(vega, subField, taskList[1], taskList[2]);
+			newVega = scatterRange(vega, subField, taskList[1], taskList[2]);
 			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
 			document.body.dispatchEvent(event);
 		}
 	}
+
+	// 返回生成的新图表数据，以便存储
+	return newVega;
 }
 const TEMP = 0.2
 const promptMsg = {
@@ -270,11 +278,26 @@ function highLight(response, visID, spec) {
     const target = response;
     const speechResult = document.getElementById('right-panel');
     
-    fetch(JSON.parse(spec)["data"]["url"])
+    // 确保使用vlSpecDict中存储的原始规范
+    let specObj;
+    try {
+        specObj = typeof spec === 'string' ? JSON.parse(spec) : spec;
+    } catch (e) {
+        console.error('解析规范出错:', e);
+        return;
+    }
+    
+    // 存储原始可视化数据（如果尚未存储）
+    if (!originalVisualizations[visID]) {
+        originalVisualizations[visID] = specObj;
+        console.log('已存储原始可视化数据:', visID);
+    }
+    
+    fetch(specObj["data"]["url"])
         .then(response => response.text())
         .then(csvData => {
             let [xList, yList, legendList, isMulti] = getColumn(csvData);
-            let chartType = JSON.parse(spec)["mark"];
+            let chartType = specObj["mark"];
             let prompt = getPrompt(chartType, isMulti, target);
             
             prompt.messages[1]['content'] += `<data> ${csvData} </data>
@@ -284,7 +307,7 @@ function highLight(response, visID, spec) {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-					"Authorization": decodeAsciiString(openai_yek),
+                    "Authorization": decodeAsciiString(openai_yek),
                 },
                 body: JSON.stringify(prompt)
             };
@@ -296,7 +319,9 @@ function highLight(response, visID, spec) {
                         .replace(/[\[\]']/g, '')
                         .split(', ')
                         .map(item => item.trim());
-                    let vega = JSON.parse(vlSpecDict[visID]);
+                    
+                    // 使用深度复制的原始规范作为基础，进行注释修改
+                    let vega = JSON.parse(JSON.stringify(specObj));
                     let fieldAndType = getMainSubFieldType(vega);
                     let mainField = fieldAndType[0];
                     let mainType = fieldAndType[1];
@@ -305,12 +330,108 @@ function highLight(response, visID, spec) {
                     let newList = taskList.slice(1);
                     console.log('task: ', taskList[0]);
 
-                    // Append the new response to the existing content in the right-panel
+                    // 生成注释后的可视化，并存储结果
+                    const annotatedVega = highLightHelper(visID, taskList[0], vega, mainField, subField, mainType, subType, newList, xList, yList, taskList, legendList, isMulti, csvData);
+                    
+                    // 创建唯一ID用于关联消息和图表
+                    const messageId = `message-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+                    
+                    // 创建新消息元素
                     const newMessage = document.createElement('div');
+                    newMessage.id = messageId;
+                    newMessage.style.position = 'relative';
+                    newMessage.style.paddingRight = '25px';
                     newMessage.textContent = `${response}`;
-                    speechResult.appendChild(newMessage);
-
-                    highLightHelper(visID, taskList[0], vega, mainField, subField, mainType, subType, newList, xList, yList, taskList, legendList, isMulti, csvData);
+                    
+                    // 添加hover效果，使消息在悬停时高亮显示
+                    newMessage.style.transition = 'background-color 0.3s ease';
+                    newMessage.addEventListener('mouseenter', () => {
+                        newMessage.style.backgroundColor = '#f0f8ff'; // 淡蓝色背景表示活动状态
+                    });
+                    newMessage.addEventListener('mouseleave', () => {
+                        newMessage.style.backgroundColor = '';
+                    });
+                    
+                    // 保存消息与注释图表的关联
+                    messageAnnotationMap[messageId] = {
+                        visId: visID,
+                        annotatedSpec: annotatedVega
+                    };
+                    
+                    // 添加鼠标悬停事件
+                    newMessage.addEventListener('mouseenter', () => {
+                        // 当鼠标悬停在消息上时，显示注释后的图表
+                        const eventData = messageAnnotationMap[messageId];
+                        if (eventData && eventData.annotatedSpec) {
+                            console.log('显示注释图表:', eventData.visId);
+                            const event = new CustomEvent('newVega-message', { 
+                                detail: [eventData.annotatedSpec, eventData.visId] 
+                            });
+                            document.body.dispatchEvent(event);
+                        }
+                    });
+                    
+                    // 添加鼠标离开事件
+                    newMessage.addEventListener('mouseleave', () => {
+                        // 当鼠标离开消息时，恢复原始图表
+                        const originalSpec = originalVisualizations[visID];
+                        if (originalSpec) {
+                            console.log('恢复原始图表:', visID);
+                            const event = new CustomEvent('newVega-message', { 
+                                detail: [originalSpec, visID] 
+                            });
+                            document.body.dispatchEvent(event);
+                        }
+                    });
+					
+					// 创建删除按钮
+					const removeButton = document.createElement('button');
+					removeButton.innerHTML = '&#10005;';
+					removeButton.style.backgroundColor = 'red';
+					removeButton.style.color = 'white';
+					removeButton.style.width = '18px';
+					removeButton.style.height = '18px';
+					removeButton.style.fontSize = '10px';
+					removeButton.style.borderRadius = '3px';
+					removeButton.style.border = 'none';
+					removeButton.style.display = 'flex';
+					removeButton.style.justifyContent = 'center';
+					removeButton.style.alignItems = 'center';
+					removeButton.style.padding = '0';
+					removeButton.style.cursor = 'pointer';
+					removeButton.style.fontWeight = 'bold';
+					removeButton.style.lineHeight = '1';
+					removeButton.style.position = 'absolute';
+					removeButton.style.top = '8px';
+					removeButton.style.right = '8px';
+					
+					// 修改删除按钮点击事件
+					removeButton.addEventListener('click', () => {
+					    // 移除消息
+						newMessage.remove();
+						
+						// 清除消息与图表的关联
+						delete messageAnnotationMap[messageId];
+						
+						// 恢复原始图表
+						const originalSpec = originalVisualizations[visID];
+						if (originalSpec) {
+                            console.log('删除时恢复原始图表:', visID);
+                            const event = new CustomEvent('newVega-message', { 
+                                detail: [originalSpec, visID] 
+                            });
+                            document.body.dispatchEvent(event);
+                        }
+					});
+					
+					newMessage.appendChild(removeButton);
+					speechResult.appendChild(newMessage);
+                })
+                .catch(error => {
+                    console.error('处理API响应时出错:', error);
                 });
+        })
+        .catch(error => {
+            console.error('获取CSV数据时出错:', error);
         });
 }

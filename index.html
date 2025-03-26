@@ -18,7 +18,7 @@
 	<title>VisChatter</title>
 </head>
 
-<body collaboration="live" custom-events="chat-message, newVega-message,vl-spec,contextmenu" ignore-events="SpeechRecognitionEvent,aiAssistToggle">
+<body collaboration="live" custom-events="chat-message, newVega-message, vl-spec,contextmenu,mouseenter,mouseleave" ignore-events="SpeechRecognitionEvent,aiAssistToggle">
 	<div id="headline"><h1> VisChatter</h1></div>
 
 	<div id="vis-container">
@@ -37,12 +37,13 @@
 			<div id="buttons">
 				<button id="renderButton" class="UI-Button">Render 📊</button>
 				<button id="clearButton" class="UI-Button" onclick="clearInput()">Clear 🗑️</button>
+				<div class="visconnect-container"> </div>
 			</div>
 		</div>
 	</div>
 
 	<!-- Add the record button -->
-	<button id="recordButton" class="record-button">🎤 Record</button>
+	<button id="recordButton" class="record-button">Record 🎤</button>
 
 	<div id="visPlayground" style="display: none;"></div>
 	<canvas id="canvas" style="display: none;"></canvas>

@@ -79,69 +79,6 @@ function getColumn(csvData) {
 let aiAssistActive = false;
 let aiAssistProcessing = false;
 
-// function generateButtons(responseList, visID, spec) {
-// 	const buttonContainer = document.getElementById('buttonContainer');
-// 	while (buttonContainer.firstChild) {
-// 		buttonContainer.removeChild(buttonContainer.firstChild);
-// 	}
-
-	// const aiAssistButton = document.createElement('button');
-	// aiAssistButton.classList.add('AI-sight-Button');
-	// aiAssistButton.textContent = 'AI-sight';
-	// //   aiAssistButton.style.backgroundColor = 'grey';
-	// // Add the click event listener
-	// aiAssistButton.addEventListener('mouseup', (e) => {
-	// 	e.stopPropagation(); // Stop event propagation to prevent multiple triggers
-	// 	if (aiAssistProcessing) {
-	// 		return; // Skip if already processing
-	// 	}
-	// 	aiAssistProcessing = true;
-	// 	// Trigger a custom event instead of handling logic here
-	// 	const aiAssistEvent = new CustomEvent('aiAssistToggle');
-	// 	aiAssistButton.dispatchEvent(aiAssistEvent);
-
-	// 	// Reset the flag after a short delay
-	// 	setTimeout(() => {
-	// 		aiAssistProcessing = false;
-	// 	}, 100); // Adjust the delay as needed
-	// });
-
-	// // Add a listener for the custom event
-	// aiAssistButton.addEventListener('aiAssistToggle', (e) => {
-	// 	aiAssistActive = !aiAssistActive;
-	// 	console.log('AI-sight Active:', aiAssistActive); // Logging the state
-	// 	if (aiAssistActive) {
-	// 		aiAssistButton.style.backgroundColor = '#f2ca3a';
-	// 		// Generate the response buttons
-	// responseList.forEach((response, index) => {
-	// 	const button = document.createElement('button');
-	// 	button.classList.add('Response-Button');
-	// 	button.textContent = responseList[index];
-	// 	button.addEventListener('mouseup', () => {
-	// 		aiAssistActive = false;
-	// 		highLight(responseList[index], visID, spec);
-	// 		aiAssistButton.style.backgroundColor = '#787878'
-	// 		toggleButtonsVisibility(false);
-	// 	});
-	// 	buttonContainer.appendChild(button);
-	// });
-	// 	} else {
-	// 		aiAssistButton.style.backgroundColor = '#787878'
-	// 		toggleButtonsVisibility(false);
-	// 	}
-	// });
-
-	// buttonContainer.appendChild(aiAssistButton);
-// }
-
-// function toggleButtonsVisibility(show) {
-// 	const buttons = document.querySelectorAll('.Response-Button');
-// 	buttons.forEach(button => {
-// 		button.style.display = show ? 'inline-block' : 'none';
-// 	});
-// }
-
-
 
 let recognition; // Declare recognition object
 
@@ -165,7 +102,22 @@ function startSpeechRecognition(spec, visID) {
 
 	// Event listener for speech recognition error
 	recognition.onerror = function (event) {
-		console.log(event.error)
+		console.log(event.error);
+		// 出错时重置录音状态
+		isRecording = false;
+		// 使用新方法更新按钮文本
+		updateRecordButtonText('Record 🎤');
+	};
+	
+	// 添加结束事件监听器
+	recognition.onend = function() {
+		console.log('Speech recognition ended');
+		// 如果仍处于录音状态，则重置状态
+		if (isRecording) {
+			isRecording = false;
+			// 使用新方法更新按钮文本
+			updateRecordButtonText('Record 🎤');
+		}
 	};
 }
 
@@ -176,17 +128,67 @@ function stopSpeechRecognition() {
 	}
 }
 
-// // Event listener for button mousedown event
-// document.getElementById('speech-button').addEventListener('mousedown', function () {
-//   startSpeechRecognition(vl_spec);
-//   document.getElementById('speech-button').innerHTML = 'Recording...';
-// });
+// 添加一个变量来跟踪录音状态
+let isRecording = false;
 
-// // Event listener for button mouseup event
-// document.getElementById('speech-button').addEventListener('mouseup', function () {
-//   stopSpeechRecognition();
-//   document.getElementById('speech-button').innerHTML = 'Start Recording';
-// });
+// 定义一个函数来更新按钮内容
+function updateRecordButtonText(text) {
+	const recordButtonContainer = document.getElementById('recordButton').parentNode;
+	const oldButton = document.getElementById('recordButton');
+	
+	// 创建新按钮
+	const newButton = document.createElement('button');
+	newButton.id = 'recordButton';
+	newButton.className = 'record-button';
+	newButton.textContent = text;
+	
+	// 复制点击事件处理器
+	newButton.addEventListener('click', recordButtonClickHandler);
+	
+	// 替换旧按钮
+	recordButtonContainer.replaceChild(newButton, oldButton);
+	
+	return newButton;
+}
+
+// 录音按钮的点击事件处理器
+function recordButtonClickHandler() {
+	console.log("isRecording: ", isRecording);
+	if (!isRecording) {
+		// 开始录音
+		console.log('start recording');
+		isRecording = true;
+		// 获取当前选中的可视化元素
+		const allCharts = document.querySelectorAll('.draggable-chart');
+		const selectedVis = Array.from(allCharts).find(chart => chart.classList.contains('selected'));
+		if (!selectedVis) {
+			console.log('No visualization selected');
+			isRecording = false; // 重置状态
+			return;
+		}
+		const visID = selectedVis.getAttribute('id');
+		const currentSpec = vlSpecDict[visID];
+		if (!currentSpec) {
+			console.log('No spec found for selected visualization');
+			isRecording = false; // 重置状态
+			return;
+		}
+		
+		// 使用新方法更新按钮文本
+		updateRecordButtonText('Recording 👂');
+		// 然后开始语音识别
+		startSpeechRecognition(currentSpec, visID);
+		
+	} else {	
+		stopSpeechRecognition();
+		isRecording = false;
+		// 使用新方法更新按钮文本
+		updateRecordButtonText('Record 🎤');
+	}
+}
+
+// 修改为点击事件监听器
+document.getElementById('recordButton').addEventListener('click', recordButtonClickHandler);
 
 document.body.addEventListener('newVega-message', (e) => {
 	// messages.push(e.detail);
