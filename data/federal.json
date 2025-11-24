@@ -1,4 +1,4 @@
- "data": {
+ {"data": {
     "values": [
       {"Date":"Jan-2022","Hires":1.5,"Quits":0.9,"Layoffs":0.3},
       {"Date":"Feb-2022","Hires":1.4,"Quits":0.8,"Layoffs":0.3},
@@ -48,4 +48,5 @@
       {"Date":"Jul-2025","Hires":0.8,"Quits":0.5,"Layoffs":0.4},
       {"Date":"Aug-2025","Hires":0.8,"Quits":0.6,"Layoffs":0.2}
     ]
-  },
+  }
+ }

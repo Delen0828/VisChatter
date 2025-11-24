@@ -1,4 +1,4 @@
- "data": {
+ {"data": {
     "values": [
       {"Date":"Dec-2000","Hires":4.1,"Quits":2.2,"Layoffs":1.5},
       {"Date":"Jan-2001","Hires":4.3,"Quits":2.4,"Layoffs":1.7},
@@ -298,4 +298,5 @@
       {"Date":"Jul-2025","Hires":3.3,"Quits":2,"Layoffs":1.1},
       {"Date":"Aug-2025","Hires":3.2,"Quits":1.9,"Layoffs":1.1}
     ]
-  },
+  }
+}
