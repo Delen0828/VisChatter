@@ -197,3 +197,111 @@ document.body.addEventListener('newVega-message', (e) => {
 	reRenderVegaLite(e.detail[0], e.detail[1]);
 	// callApi();
 });
+
+// Function to relocate and restyle the visconnect share button
+function relocateShareButton() {
+	// Use MutationObserver to detect when visconnect-container is added
+	const observer = new MutationObserver((mutations) => {
+		for (const mutation of mutations) {
+			for (const node of mutation.addedNodes) {
+				if (node.id === 'visconnect-container') {
+					// Found the visconnect container
+					console.log('VisConnect container detected, relocating...');
+					
+					// Get the header buttons container
+					const headerButtons = document.querySelector('.header-buttons');
+					const visconnectContainer = document.querySelector('.visconnect-container');
+					
+					// Remove the placeholder div if it exists
+					if (visconnectContainer) {
+						visconnectContainer.remove();
+					}
+					
+					// Move the visconnect container to the header
+					if (headerButtons && node) {
+						// Remove all inline styles that conflict with our positioning
+						node.removeAttribute('style');
+						
+						// Add a class for custom styling
+						node.className = 'share-button-container';
+						
+						// Create a button wrapper that matches the record button
+						const shareButton = document.createElement('button');
+						shareButton.className = 'share-button';
+						shareButton.id = 'shareButton';
+						
+						// Move the visconnect invite link into our button
+						const inviteLink = node.querySelector('#visconnect-invite');
+						if (inviteLink) {
+							// Get the SVG logo
+							const logo = inviteLink.querySelector('#visconnect-logo');
+							if (logo) {
+								// Make the logo smaller
+								logo.style.width = '16px';
+								logo.style.height = '16px';
+							}
+							
+							// Add text label
+							const label = document.createElement('span');
+							label.textContent = 'Share';
+							label.style.marginLeft = '6px';
+							
+							// Clear the invite link and rebuild it
+							inviteLink.innerHTML = '';
+							if (logo) inviteLink.appendChild(logo);
+							inviteLink.appendChild(label);
+							
+							// Make the button clickable
+							shareButton.onclick = () => {
+								inviteLink.click();
+							};
+							
+							// Add the content to our button
+							shareButton.appendChild(inviteLink);
+						}
+						
+						// Get other status elements
+						const linkCopied = node.querySelector('#visconnect-link-copied');
+						const notReady = node.querySelector('#visconnect-not-ready');
+						const collabNotice = node.querySelector('#visconnect-collab-notice');
+						
+						// Hide these elements by default, they'll show when needed
+						if (linkCopied) linkCopied.style.display = 'none';
+						if (notReady) notReady.style.display = 'none';
+						if (collabNotice) collabNotice.style.display = 'none';
+						
+						// Clear the original container and add our button
+						node.innerHTML = '';
+						node.appendChild(shareButton);
+						
+						// Add status elements back
+						if (linkCopied) node.appendChild(linkCopied);
+						if (notReady) node.appendChild(notReady);
+						if (collabNotice) node.appendChild(collabNotice);
+						
+						// Insert before the record button
+						const recordButton = document.getElementById('recordButton');
+						headerButtons.insertBefore(node, recordButton);
+						
+						// Stop observing once we've moved the container
+						observer.disconnect();
+					}
+				}
+			}
+		}
+	});
+	
+	// Start observing the body for added nodes
+	observer.observe(document.body, {
+		childList: true,
+		subtree: false
+	});
+}
+
+// Call the function when DOM is ready
+if (document.readyState === 'loading') {
+	document.addEventListener('DOMContentLoaded', relocateShareButton);
+} else {
+	// DOM is already loaded
+	relocateShareButton();
+}

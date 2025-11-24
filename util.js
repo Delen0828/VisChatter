@@ -276,7 +276,8 @@ function getPrompt(chartType, isMulti, target) {
 
 function highLight(response, visID, spec) {
     const target = response;
-    const speechResult = document.getElementById('right-panel');
+    const rightPanel = document.getElementById('right-panel');
+    const speechResult = rightPanel.querySelector('.panel-content') || rightPanel;
     
     // 确保使用vlSpecDict中存储的原始规范
     let specObj;

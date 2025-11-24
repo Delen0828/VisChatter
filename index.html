@@ -19,31 +19,37 @@
 </head>
 
 <body collaboration="live" custom-events="chat-message, newVega-message, vl-spec,contextmenu,mouseenter,mouseleave" ignore-events="SpeechRecognitionEvent,aiAssistToggle">
-	<div id="headline"><h1> VisChatter</h1></div>
+	<div id="headline">
+		<h1>VisChatter</h1>
+		<div class="header-buttons">
+			<div class="visconnect-container"></div>
+			<button id="recordButton" class="record-button">Record</button>
+		</div>
+	</div>
 
 	<div id="vis-container">
 		<!-- <div id="vis" class="draggable-chart"></div> -->
 	</div>
 	
-	<div id="right-panel">
-		
-		<!-- <div id="buttonContainer"></div> -->
+	<div id="right-panel" class="right-sidebar collapsed">
+		<button id="toggleRight" class="toggle-btn toggle-right">‹</button>
+		<div class="panel-content">
+			<!-- <div id="buttonContainer"></div> -->
+		</div>
 	</div>
 	<!-- <div id="speech-container"></div> -->
-	<div id="background">
+	<div id="background" class="left-sidebar collapsed">
+		<button id="toggleLeft" class="toggle-btn toggle-left">›</button>
 		<div id="widgets">
 			<!-- <input type="text" id="input" value="Input vega-lite code...">  </input> -->
 			<div id="inputContainer"> <textarea id="input" placeholder="Input vega-lite code..."></textarea></div>
 			<div id="buttons">
-				<button id="renderButton" class="UI-Button">Render 📊</button>
-				<button id="clearButton" class="UI-Button" onclick="clearInput()">Clear 🗑️</button>
-				<div class="visconnect-container"> </div>
+				<button id="renderButton" class="UI-Button">Render</button>
+				<button id="clearButton" class="UI-Button" onclick="clearInput()">Clear</button>
 			</div>
 		</div>
 	</div>
 
-	<!-- Add the record button -->
-	<button id="recordButton" class="record-button">Record 🎤</button>
 
 	<div id="visPlayground" style="display: none;"></div>
 	<canvas id="canvas" style="display: none;"></canvas>
@@ -56,6 +62,7 @@
 	<script src="highlight.js"></script>
 	<script src="vega.js"> </script>
 	<script src="delete.js"></script>
+	<script src="sidebar-toggle.js"></script>
 </body>
 
 </html>
