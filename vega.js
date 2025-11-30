@@ -16,8 +16,9 @@ function renderVegaLite(spec) {
   const newDiv = document.createElement('div');
   newDiv.className = 'draggable-chart';
   newDiv.style.position = 'absolute';
-  newDiv.style.left = '20px';  // 距离左边 20px
-  newDiv.style.top = '20px';   // 距离顶部 20px
+  newDiv.style.left = '0';  // Always use 0 for left
+  newDiv.style.top = '0';   // Always use 0 for top
+  newDiv.style.transform = 'translate3d(20px, 20px, 0)'; // Use transform for positioning
   
   // 生成唯一ID
   const uniqueId = `vis-${Math.floor(Date.now() / 1000)}`;

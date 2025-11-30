@@ -334,6 +334,7 @@ function highLight(response, visID, spec) {
                     // 生成注释后的可视化，并存储结果
                     const annotatedVega = highLightHelper(visID, taskList[0], vega, mainField, subField, mainType, subType, newList, xList, yList, taskList, legendList, isMulti, csvData);
                     
+                    
                     // 创建唯一ID用于关联消息和图表
                     const messageId = `message-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
                     

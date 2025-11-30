@@ -1,6 +1,27 @@
 const apiResponseDict = {}
 const vlSpecDict = {}
 
+// Global theme control
+window.THEME_MODE = 'light'; // Default to light mode
+
+function setTheme(mode) {
+	window.THEME_MODE = mode;
+	if (mode === 'light') {
+		document.body.classList.add('light-theme');
+	} else {
+		document.body.classList.remove('light-theme');
+	}
+}
+
+function toggleTheme() {
+	setTheme(window.THEME_MODE === 'dark' ? 'light' : 'dark');
+}
+
+// Initialize theme on page load
+document.addEventListener('DOMContentLoaded', () => {
+	setTheme(window.THEME_MODE);
+});
+
 function decodeAsciiString(asciiString) {
 	// Define a function to convert HTML entities to their character representation
 	function entityToChar(match, num) {
