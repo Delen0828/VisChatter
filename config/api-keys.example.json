@@ -1,0 +1,6 @@
+{
+  "openai": {
+    "apiKey": "",
+    "model": "ft:gpt-4o-mini-2024-07-18:personal:vischatter-finetune-0319:BCsQ8ZTt"
+  }
+}

@@ -22,19 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	setTheme(window.THEME_MODE);
 });
 
-function decodeAsciiString(asciiString) {
-	// Define a function to convert HTML entities to their character representation
-	function entityToChar(match, num) {
-		return String.fromCharCode(Number(num));
-	}
-	// Use regular expression to find all HTML entities in the string
-	const pattern = /&#(\d+);/g;
-	// Replace each HTML entity with its corresponding character
-	const decodedString = asciiString.replace(pattern, entityToChar);
-
-	return decodedString;
-}
-
 function getResponse(str) {
 	// console.log(str)
 	var index = str.indexOf("### Response:\n");
@@ -44,7 +31,6 @@ function getResponse(str) {
 		return "### Response: not found";
 	}
 }
-const openai_yek = "&#66;&#101;&#97;&#114;&#101;&#114;&#32;&#115;&#107;&#45;&#112;&#114;&#111;&#106;&#45;&#51;&#50;&#107;&#119;&#111;&#121;&#114;&#51;&#105;&#104;&#121;&#76;&#90;&#107;&#85;&#105;&#88;&#84;&#113;&#113;&#77;&#71;&#111;&#82;&#109;&#117;&#73;&#49;&#65;&#115;&#66;&#107;&#77;&#122;&#106;&#112;&#81;&#108;&#113;&#114;&#72;&#108;&#75;&#118;&#79;&#88;&#69;&#120;&#118;&#88;&#77;&#55;&#109;&#116;&#65;&#50;&#100;&#71;&#84;&#51;&#66;&#108;&#98;&#107;&#70;&#74;&#118;&#110;&#102;&#45;&#106;&#99;&#84;&#86;&#90;&#118;&#69;&#68;&#122;&#68;&#65;&#86;&#75;&#75;&#69;&#56;&#53;&#117;&#73;&#48;&#79;&#105;&#109;&#105;&#121;&#110;&#56;&#79;&#77;&#85;&#84;&#115;&#87;&#53;&#112;&#104;&#76;&#49;&#88;&#80;&#120;&#48;&#111;&#119;&#51;&#48;&#51;&#90;&#98;&#55;&#53;&#114;&#115;&#65;"
 
 function callApi(spec, visID) {
 	vlSpecDict[visID] = spec;

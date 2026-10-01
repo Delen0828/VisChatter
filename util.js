@@ -233,7 +233,6 @@ function highLightHelper(visID, task, vega, mainField, subField, mainType, subTy
 }
 const TEMP = 0.2
 const promptMsg = {
-	model: "ft:gpt-4o-mini-2024-07-18:personal:vischatter-finetune-0319:BCsQ8ZTt",  
 	messages: [
 		{"role": "system", "content": "You are a precise labeling assistant. Return only the label and key-values without explanation."},
 		{"role": "user", "content": `
@@ -308,13 +307,18 @@ function highLight(response, visID, spec) {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "Authorization": decodeAsciiString(openai_yek),
                 },
                 body: JSON.stringify(prompt)
             };
             
-            fetch("https://api.openai.com/v1/chat/completions", payload)
-                .then(response => response.json())
+            fetch("/api/chat/completions", payload)
+                .then(async response => {
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.error?.message || 'AI assistance failed.');
+                    }
+                    return data;
+                })
                 .then(data => {
                     let taskList = data.choices[0].message.content
                         .replace(/[\[\]']/g, '')
@@ -431,6 +435,10 @@ function highLight(response, visID, spec) {
                 })
                 .catch(error => {
                     console.error('处理API响应时出错:', error);
+                    const notice = document.createElement('div');
+                    notice.setAttribute('role', 'alert');
+                    notice.textContent = error.message;
+                    speechResult.appendChild(notice);
                 });
         })
         .catch(error => {
