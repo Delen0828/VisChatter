@@ -17,51 +17,88 @@
 	<title>VisChatter</title>
 </head>
 
-<body collaboration="live" custom-events="chat-message, newVega-message, vl-spec,contextmenu,mouseenter,mouseleave" ignore-events="SpeechRecognitionEvent,aiAssistToggle">
-	<div id="headline">
-		<h1>VisChatter</h1>
-		<div class="header-buttons">
-			<div class="visconnect-container"></div>
-			<button id="recordButton" class="record-button">Record</button>
-		</div>
-	</div>
+<body collaboration="live" custom-events="vl-spec,chart-comment,chart-comments-clear,chart-delete,chart-move,board-clear" ignore-events="SpeechRecognitionEvent,aiAssistToggle">
+    <header id="headline">
+        <a class="brand" href="./" aria-label="VisChatter home"><span class="brand-mark" aria-hidden="true">V</span><h1>VisChatter</h1></a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <span class="board-name">Whiteboard</span>
+        <div class="header-buttons">
+            <label class="model-control" for="model-select" data-visconnect-local>Model
+                <select id="model-select" aria-label="OpenRouter model">
+                    <option value="deepseek/deepseek-v4.1-flash">DeepSeek V4.1 Flash</option>
+                    <option value="nvidia/nemotron-3.5-lightning:free">Nemotron 3.5 Lightning (free)</option>
+                    <option value="openai/gpt-6.1-sol">GPT-6.1 Sol</option>
+                </select>
+            </label>
+            <div class="visconnect-container"></div>
+        </div>
+    </header>
 
-	<div id="vis-container">
-		<!-- <div id="vis" class="draggable-chart"></div> -->
-	</div>
-	
-	<div id="right-panel" class="right-sidebar collapsed">
-		<button id="toggleRight" class="toggle-btn toggle-right">‹</button>
-		<div class="panel-content">
-			<!-- <div id="buttonContainer"></div> -->
-		</div>
-	</div>
-	<!-- <div id="speech-container"></div> -->
-	<div id="background" class="left-sidebar collapsed">
-		<button id="toggleLeft" class="toggle-btn toggle-left">›</button>
-		<div id="widgets">
-			<!-- <input type="text" id="input" value="Input vega-lite code...">  </input> -->
-			<div id="inputContainer"> <textarea id="input" placeholder="Input vega-lite code..."></textarea></div>
-			<div id="buttons">
-				<button id="renderButton" class="UI-Button">Render</button>
-				<button id="clearButton" class="UI-Button" onclick="clearInput()">Clear</button>
-			</div>
-		</div>
-	</div>
+    <main id="whiteboard" aria-label="Visualization whiteboard" data-visconnect-local>
+        <div id="vis-container" aria-label="Charts">
+            <div id="empty-board" data-visconnect-local>
+                <div class="empty-illustration" aria-hidden="true">
+                    <svg viewBox="0 0 64 64"><path d="M12 12v40h42"/><path class="empty-bars" d="M23 42V30m12 12V20m12 22V12"/></svg>
+                </div>
+                <h2>A space for your data stories</h2>
+                <p>Add a visualization to start exploring together.</p>
+                <button type="button" class="text-button" id="empty-add-button">Add your first chart <span aria-hidden="true">↗</span></button>
+            </div>
+        </div>
+        <div class="board-hint" data-visconnect-local><span id="chart-count">0 charts</span><span class="hint-divider">·</span>Drag to arrange. Right-click to comment.</div>
+        <div class="toolkit-dock" data-visconnect-local>
+            <section id="live-transcript" aria-label="Live transcript" hidden>
+                <div class="transcript-heading"><span id="transcript-indicator" class="record-dot"></span><span id="transcript-status">Live transcript</span></div>
+                <p id="transcript-text" role="status" aria-live="polite"></p>
+            </section>
+            <div id="toolkit" role="toolbar" aria-label="Whiteboard toolkit">
+                <button id="addButton" type="button" class="tool-button add-tool"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>
+                <button id="clearButton" type="button" class="tool-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 4 6 6-10 10H6l-4-4L15 4Z"/><path d="m8 10 6 6M11 20h10"/></svg><span>Clear</span></button>
+                <span class="tool-divider" aria-hidden="true"></span>
+                <button id="recordButton" type="button" class="tool-button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"/></svg><span id="record-label">Record</span></button>
+            </div>
+        </div>
+        <div id="board-notice" role="status" data-visconnect-local hidden></div>
+        <div id="chart-menu" role="menu" aria-label="Visualization actions" data-visconnect-local hidden>
+            <button type="button" role="menuitem" data-action="comment">Comment <span aria-hidden="true">↵</span></button>
+            <button type="button" role="menuitem" data-action="speech">Speech comment</button>
+            <div class="menu-divider" role="separator"></div>
+            <button type="button" role="menuitem" data-action="clear-comments">Clear all comments</button>
+            <button type="button" role="menuitem" data-action="delete" class="danger-text">Delete</button>
+        </div>
+    </main>
 
+    <dialog id="add-dialog" class="board-dialog" aria-labelledby="add-title" data-visconnect-local>
+        <form id="add-form" novalidate>
+            <div class="dialog-heading"><div><span class="eyebrow">ON YOUR WHITEBOARD</span><h2 id="add-title">Add a visualization</h2></div><button type="button" class="icon-button" data-close-dialog="add-dialog" aria-label="Close add visualization">×</button></div>
+            <p class="dialog-description">Paste your Vega-Lite specification below.</p>
+            <label class="sr-only" for="input">Vega-Lite JSON specification</label>
+            <textarea id="input" placeholder='{"data": {"values": [...]}, "mark": "bar", "encoding": {...}}' spellcheck="false" required></textarea>
+            <p id="add-error" class="form-error" role="alert" hidden></p>
+            <div class="dialog-footer"><button type="button" class="secondary-button" data-close-dialog="add-dialog">Cancel</button><button id="renderButton" type="submit" class="primary-button">Add to whiteboard</button></div>
+        </form>
+    </dialog>
 
-	<div id="visPlayground" style="display: none;"></div>
-	<canvas id="canvas" style="display: none;"></canvas>
-	
-	<script src="connect.js"></script>
-	<script src="util.js"> </script>
-	<script src="js.js"></script>
-	<script src="visconnect-bundle.js"></script>
-	<script src="drag.js"></script>
-	<script src="highlight.js"></script>
-	<script src="vega.js"> </script>
-	<script src="delete.js"></script>
-	<script src="sidebar-toggle.js"></script>
+    <dialog id="comment-dialog" class="board-dialog comment-dialog" aria-labelledby="comment-title" data-visconnect-local>
+        <form id="comment-form" novalidate>
+            <div class="dialog-heading"><div><span class="eyebrow" id="comment-chart-name">CHART COMMENT</span><h2 id="comment-title">Add a comment</h2></div><button type="button" class="icon-button" data-close-dialog="comment-dialog" aria-label="Close comment">×</button></div>
+            <p class="dialog-description">Describe a data point or a pattern to annotate this chart.</p>
+            <label class="sr-only" for="comment-input">Chart comment</label>
+            <textarea id="comment-input" placeholder="What do you see in this chart?" required></textarea>
+            <p id="comment-status" class="comment-status" role="status" aria-live="polite" hidden></p>
+            <div class="dialog-footer"><button id="speech-comment-button" type="button" class="secondary-button" aria-pressed="false">Speech comment</button><button id="comment-button" type="submit" class="primary-button">Post comment</button></div>
+        </form>
+    </dialog>
+
+    <div id="visPlayground" hidden></div>
+    <canvas id="canvas" hidden></canvas>
+    <script src="connect.js"></script>
+    <script src="visconnect-bundle.js"></script>
+    <script src="util.js"></script>
+    <script src="js.js"></script>
+    <script src="drag.js"></script>
+    <script src="highlight.js"></script>
+    <script src="vega.js"></script>
+    <script src="delete.js"></script>
 </body>
-
 </html>

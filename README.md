@@ -4,24 +4,34 @@ VisChatter is a prototype for online collaboration on data visualization, hosted
 
 # Hosting and development
 
-The Node.js server serves the interface and datasets and forwards AI requests to OpenAI. It has no npm dependencies. Use Node.js 20 or newer and Bash. Server hosting also needs `tmux`, `cloudflared`, and `curl`.
+The Node.js server serves the interface and datasets and forwards AI requests to OpenRouter. It has no npm dependencies. Use Node.js 20 or newer and Bash. Server hosting also needs `tmux`, `cloudflared`, and `curl`.
 
 ## Private API key file
 
-Startup creates `config/api-keys.json` from `config/api-keys.example.json` with owner-only permissions. Fill in this file on the machine running the app:
+Put your OpenRouter API key in `env/key` as plain text. Startup uses this file by default and creates an empty file with owner-only permissions if it is missing. The existing key in `env/key` needs no conversion.
+
+Choose a model from the **Model** selector in the header. Your selection is saved in this browser and applies to subsequent AI annotations:
+
+- [DeepSeek V4.1 Flash](https://openrouter.ai/deepseek/deepseek-v4.1-flash) (default): `deepseek/deepseek-v4.1-flash`
+- [Nemotron 3.5 Lightning (free)](https://openrouter.ai/nvidia/nemotron-3.5-lightning:free): `nvidia/nemotron-3.5-lightning:free`
+- [GPT-6.1 Sol](https://openrouter.ai/openai/gpt-6.1-sol): `openai/gpt-6.1-sol`
+
+The server accepts only these model IDs. General-purpose models receive explicit annotation instructions and return validated JSON arrays used by the existing Vega-Lite editing code.
+
+For a different private file, set `API_KEYS_FILE=/absolute/path/to/key`. It can contain plain text or JSON matching `config/api-keys.example.json`:
 
 ```json
 {
-  "openai": {
-    "apiKey": "YOUR_OPENAI_API_KEY",
-    "model": "ft:gpt-4o-mini-2024-07-18:personal:vischatter-finetune-0319:BCsQ8ZTt"
+  "openrouter": {
+    "apiKey": "YOUR_OPENROUTER_API_KEY",
+    "model": "deepseek/deepseek-v4.1-flash"
   }
 }
 ```
 
-The model defaults to the prototype's existing fine-tuned model. Your key must have access to it; change `openai.model` to a model available to your account if needed, such as `gpt-4o-mini`. The server reads this file on each AI request, so saving a key or model change does not require a restart. A blank key still allows the interface and chart rendering to run; AI requests return a clear configuration message. Use a new key instead of the credential previously embedded in browser source.
+The JSON model is the server fallback for clients that omit a model. The interface sends its selected model explicitly. The server reads the key file on every request, so key changes need no restart. A blank key allows chart rendering but AI requests return a configuration message.
 
-This file is ignored by Git and is never served over HTTP. Only the server sends the key to OpenAI; browser code calls `/api/chat/completions`. Provider error messages are sanitized, requests are limited to 1 MiB, and AI calls are limited to 30 per client per minute. `API_KEYS_FILE=/absolute/path/api-keys.json` can select an existing private file instead.
+`env/` and `config/api-keys.json` are ignored by Git and never served over HTTP. Only the server sends the key to OpenRouter; the browser calls `/api/chat/completions`. Provider errors are sanitized, requests are limited to 1 MiB, and AI calls are limited to 30 per client per minute.
 
 ## Server: Cloudflare Tunnel in tmux
 
@@ -56,6 +66,18 @@ tail -f /path/to/VisChatter/.runtime/tunnel.log
 
 Detach with Ctrl+B, then D. The processes keep running after SSH disconnects. A machine reboot stops tmux; rerun the hosting script afterward. Stop also keeps the named tunnel and DNS record for the next start. ViewRecovery's existing deployment runs independently.
 
+## Whiteboard controls
+
+The header keeps the model selector and sharing link. Charts live on a dotted whiteboard and can be dragged to arrange them.
+
+- **Add** in the bottom toolkit opens a popup for Vega-Lite JSON, including specs with inline data.
+- Right-click a chart (or use its **···** button) for **Comment**, **Speech comment**, **Clear all comments**, and **Delete**. Speech comments fill an editable draft; choose **Post comment** to add the comment and generate its annotation.
+- A chart with comments shows a translucent **+X** bubble. Click it to open the comment list, then hover or focus a comment to preview its annotation. Leaving the comment restores the latest annotation by submission timestamp, even when AI requests finish out of order.
+- **Clear** removes all charts and their comments. Clearing comments or deleting a chart cancels its pending annotation requests.
+- **Record** toggles continuous speech recognition and displays a live transcript above the toolkit. It works without selecting a chart and does not create comments or request AI annotations. The transcript stays visible when recording is paused.
+
+Chart additions, movements, comments, and deletions use the existing collaboration connection. Comment drafts, annotation previews, and live transcripts stay local to each browser.
+
 ## Local development
 
 ```bash
@@ -64,9 +86,9 @@ cd /path/to/VisChatter
 # Open http://127.0.0.1:5502
 ```
 
-No Cloudflare login or tmux is needed locally. Node watches server changes; refresh your browser after editing frontend files. Ctrl+C stops development. Set `PORT=5503 ./start-dev.sh` to use another port. To test from another device, set `HOST=0.0.0.0 ./start-dev.sh`; microphone recognition generally requires HTTPS or localhost, so use localhost for speech testing. Use a browser that supports `webkitSpeechRecognition` for the Record button. AI development requests use the local machine's private key file.
+No Cloudflare login or tmux is needed locally. Node watches server changes; refresh your browser after editing frontend files. Ctrl+C stops development. Set `PORT=5503 ./start-dev.sh` to use another port. To test from another device, set `HOST=0.0.0.0 ./start-dev.sh`; microphone recognition generally requires HTTPS or localhost, so use localhost for speech testing. Use a browser that supports `SpeechRecognition` or `webkitSpeechRecognition` for voice input; microphone access is requested when you start recording or a speech comment. AI development requests use the local machine's private key file.
 
-Run `npm test` for server checks covering secret-file protection, missing keys, server-side model selection, live key reload, request validation, rate limits, and provider failures. `/healthz` returns origin health and whether an API key is present; it does not validate the key against OpenAI.
+Run `npm test` for whiteboard checks covering comment ordering, annotation previews, request cancellation, and mocked speech recording, plus server checks covering secret-file protection, missing keys, server-side model selection, live key reload, request validation, rate limits, and provider failures. `/healthz` returns origin health and whether an API key is present; it does not validate the key against OpenRouter.
 
 # Directories
 
@@ -74,7 +96,7 @@ Run `npm test` for server checks covering secret-file protection, missing keys, 
 
 `index.html` is the HTML page of VisChatter, using `style.css` for better format and calling other JS files for functionality.
 
-`delete.js` contains functions used to delete visualizations from the dashboard.
+`delete.js` handles chart menus, clearing comments, chart deletion, and clearing the whiteboard.
 
 `drag.js` contains functions used to drag visualizations on the dashboard.
 

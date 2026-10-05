@@ -11368,6 +11368,11 @@ var VcListener = /** @class */ (function () {
                 // Only capture for the correct target.
                 return;
             }
+            // Local controls need native default actions (synthetic events cannot open a select).
+            // Check ancestors too so labels and option elements stay local to this browser.
+            if (element.closest('[data-visconnect-local]')) {
+                return;
+            }
             if (e['visconnect-received']) {
                 // Don't broadcast events that have been received from other clients.
                 return;
@@ -11445,11 +11450,16 @@ function delayAddEventListener() {
     // The visualization's event listeners need to be called after VisConnect's event listeners.
     // For this reason, we delay calling event listeners that are added before VisConnect is started.
     Element.prototype['addEventListenerBackup'] = Element.prototype.addEventListener;
-    Element.prototype.addEventListener = function (eventName, callback) {
+    Element.prototype.addEventListener = function (eventName, callback, options) {
+        // Local whiteboard controls do not need to wait for collaboration listeners.
+        if (this.closest('[data-visconnect-local]')) {
+            Element.prototype['addEventListenerBackup'].call(this, eventName, callback, options);
+            return;
+        }
         //console.log('doing a delayed execution on ', eventName, this);
         var that = this;
         setTimeout(function () {
-            Element.prototype['addEventListenerBackup'].call(that, eventName, callback);
+            Element.prototype['addEventListenerBackup'].call(that, eventName, callback, options);
         }, 110);
     };
     // After the visualization code is run, reset the addEventListener function to its normal functionality, and start

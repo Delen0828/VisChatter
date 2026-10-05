@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/songwen/Documents/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

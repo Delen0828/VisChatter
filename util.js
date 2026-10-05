@@ -36,195 +36,127 @@ async function setUrl(number) {
 	}
 }
 
-function clearInput() {
-	document.getElementById('input').value = '';
-}
-
 const textInput = document.getElementById('input');
-const renderButton = document.getElementById('renderButton')
-// const textArea = document.getElementById('vega-lite-code');
-
-// Handle file selection
-const msgPool = {}
-// document.addEventListener('DOMContentLoaded', () => {
-renderButton.addEventListener('mouseup', async function (e) {
-	e.stopPropagation();
-	const input = textInput.value;
-	try {
-		let vega = JSON.parse(input);
-		let currentUrl = vega["data"]["url"];
-		let match = currentUrl.match(/\/(\d+)\.tsv$/);
-		if (match) {
-			let number = match[1];
-			let newUrl = await setUrl(number);
-			if (newUrl) {
-				vega["data"]["url"] = newUrl;
-			}
-		}
-		let vl_spec = JSON.stringify(vega, null, 2);
-		const uniqueId = `vis-${Math.floor(Date.now() / 1000)}`;
-		const msgData = {
-			id: uniqueId,
-			text: vl_spec,
-			time: Date.now()
-		};
-		// Store the message data in the dictionary
-		if (!msgPool[uniqueId]) {
-			msgPool[uniqueId] = msgData;
-			const vegaEvent = new CustomEvent('vl-spec', { detail: msgData, id: uniqueId });
-			document.body.dispatchEvent(vegaEvent);
-		}
-		else {
-			console.log(msgPool)
-			console.error('Existing chart:', uniqueId)
-		}
-	} catch (error) {
-		console.error('Error input:', error);
-	}
-});
-// });
-const specPool = {}
-document.body.addEventListener('vl-spec', (e) => {
-	if (!specPool[e.detail.id]) {
-		renderVegaLite(e.detail.text);
-		specPool[e.detail.id] = e.detail;
-	}
-	else {
-		console.log('Existing chart:', e.detial.id);
-	}
-});
-
-// 添加全局字典用于存储消息与注释代码的映射关系
-const messageAnnotationMap = {};
-// 保存原始的可视化数据，用于重置
+const renderButton = document.getElementById('renderButton');
+const msgPool = {};
+const specPool = {};
 const originalVisualizations = {};
+const annotationRequests = {};
+let lastCommentTimestamp = 0;
+
+document.getElementById('add-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const errorNotice = document.getElementById('add-error');
+    errorNotice.hidden = true;
+    renderButton.disabled = true;
+    try {
+        const vega = JSON.parse(textInput.value);
+        if (!vega || typeof vega !== 'object' || Array.isArray(vega)) throw new Error('Enter a Vega-Lite JSON object.');
+        vegaLite.compile(vega);
+        const match = typeof vega.data?.url === 'string' && vega.data.url.match(/\/(\d+)\.tsv$/);
+        if (match) {
+            const newUrl = await setUrl(match[1]);
+            if (newUrl) vega.data.url = newUrl;
+        }
+        const msgData = { id: createBoardId('vis'), text: JSON.stringify(vega), time: Date.now() };
+        msgPool[msgData.id] = msgData;
+        boardEvent('vl-spec', msgData);
+        document.getElementById('add-dialog').close();
+        textInput.value = '';
+    } catch (error) {
+        errorNotice.textContent = `Could not add visualization: ${error.message}`;
+        errorNotice.hidden = false;
+    } finally { renderButton.disabled = false; }
+});
+document.body.addEventListener('vl-spec', event => {
+    if (specPool[event.detail.id]) return;
+    specPool[event.detail.id] = event.detail;
+    renderVegaLite(event.detail.text, event.detail.id);
+});
 
 function highLightHelper(visID, task, vega, mainField, subField, mainType, subType, newList, xList, yList, taskList, legendList, isMulti, csvData) {
 	console.log('newList',newList)
 	let newVega;
+	const markType = typeof vega.mark === 'string' ? vega.mark : vega.mark?.type;
 	
-	if (vega["mark"] == 'bar') {
+	if (markType == 'bar') {
 		if (task == 'RETRIEVE') {
 			newVega = barHighlightOne(vega, mainField, newList[0]);
-			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-			document.body.dispatchEvent(event);
 		}
 		if (task == 'COMPARE') {
 			newVega = barCompareTwo(vega, mainField, newList[0], newList[1]);
-			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-			document.body.dispatchEvent(event);
 		}
 		if (task == 'FILTER') {
 			newVega = barThreshold(vega, subField, taskList[1]);
-			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-			document.body.dispatchEvent(event);
 		}
 		if (task == 'TREND-' || task == 'TRENDv' || task == 'TREND^') {
 			newVega = barTrend(vega, mainType, taskList[1], taskList[2]);
-			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-			document.body.dispatchEvent(event);
 		}
 		if (task == 'RANGE') {
 			newVega = barRange(vega, subField, taskList[1], newList[2]);
-			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-			document.body.dispatchEvent(event);
 		}
 	}
-	if (vega["mark"] == 'line' || vega["mark"] == 'area') {
+	if (markType == 'line' || markType == 'area') {
 		if (isMulti) {
 			if (task == 'RETRIEVE') {
 				newVega = lineHighlightOne(vega, mainField, mainType, newList[0], xList, isMulti, taskList[2], 'symbol', csvData); //TODO:change this to retrieval
-				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-				document.body.dispatchEvent(event);
 			}
 			if (task == 'COMPARE') {
 				newVega = lineCompareTwo(vega, mainField, mainType, newList[0], newList[1], xList, isMulti, taskList[3], taskList[4], 'symbol', csvData);
-				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-				document.body.dispatchEvent(event);
 			}
 			if (task == 'FILTER') {
 				newVega = lineThreshold(vega, mainType, subType, newList[0], xList, yList, csvData);
-				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-				document.body.dispatchEvent(event);
 			}
 			if (task == 'TREND-' || task == 'TRENDv' || task == 'TREND^') {
 				if (newList.length >= 3) {
 					newVega = lineTrend(vega, taskList[0], mainField, subField, mainType, subType, xList, newList[0], newList[1], taskList[2], csvData);
-					const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-					document.body.dispatchEvent(event);
 				}
 				else {
 					newVega = lineTrend(vega, taskList[0], mainField, subField, mainType, subType, xList, value1 = -1, value2 = -1, taskList[2], 'symbol', csvData);
-					const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-					document.body.dispatchEvent(event);
 				}
 			}
 			if (task == 'RANGE') {
 				newVega = lineRange(vega, mainField,mainType, subType, taskList[1], taskList[2], xList, yList, isMulti, csvData);
-				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-				document.body.dispatchEvent(event);
 			}
 		}
 		else {
 			if (task == 'RETRIEVE') {
 				newVega = lineHighlightOne(vega, mainField, mainType, newList[0], xList);
-				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-				document.body.dispatchEvent(event);
 			}
 			if (task == 'COMPARE') {
 				newVega = lineCompareTwo(vega, mainField, mainType, newList[0], newList[1], xList);
-				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-				document.body.dispatchEvent(event);
 			}
 			if (task == 'FILTER') {
 				newVega = lineThreshold(vega, mainType, subType, newList[0], xList, yList);
-				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-				document.body.dispatchEvent(event);
 			}
 			if (task == 'TREND-' || task == 'TRENDv' || task == 'TREND^') {
 				if (newList.length >= 3) {
 					newVega = lineTrend(vega, taskList[0], mainField, subField, mainType, subType, xList, newList[1], newList[2]);
-					const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-					document.body.dispatchEvent(event);
 				}
 				else {
 					newVega = lineTrend(vega, taskList[0], mainField, subField, mainType, subType, xList);
-					const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-					document.body.dispatchEvent(event);
 				}
 			}
 			if (task == 'RANGE') {
 				newVega = lineRange(vega, mainField,mainType,subType, taskList[1], taskList[2], xList, yList);
-				const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-				document.body.dispatchEvent(event);
 			}
 		}
 	}
-	if (vega["mark"] == "circle") {
+	if (markType == "circle") {
 		if (task == 'RETRIEVE') {
 			newVega = scatterHighlightOne(vega, mainField, subField, taskList[1]);
-			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-			document.body.dispatchEvent(event);
 		}
 		if (task == 'COMPARE') {
 			newVega = scatterCompareTwo(vega, mainField, subField, taskList[1], taskList[2]);
-			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-			document.body.dispatchEvent(event);
 		}
 		if (task == 'FILTER') {
 			newVega = scatterThreshold(vega, subField, taskList[1]);
-			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-			document.body.dispatchEvent(event);
 		}
 		if (task == 'TREND-' || task == 'TRENDv' || task == 'TREND^') {
 			newVega = scatterTrend(vega, mainField, subField);
-			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-			document.body.dispatchEvent(event);
 		}
 		if (task == 'RANGE') {
 			newVega = scatterRange(vega, subField, taskList[1], taskList[2]);
-			const event = new CustomEvent('newVega-message', { detail: [newVega, visID] });
-			document.body.dispatchEvent(event);
 		}
 	}
 
@@ -234,7 +166,7 @@ function highLightHelper(visID, task, vega, mainField, subField, mainType, subTy
 const TEMP = 0.2
 const promptMsg = {
 	messages: [
-		{"role": "system", "content": "You are a precise labeling assistant. Return only the label and key-values without explanation."},
+		{"role": "system", "content": "You are a precise labeling assistant. Return only a valid JSON array of strings: the task label followed by key-values. No markdown or explanation. Example: [\"RETRIEVE\", \"2020\"]."},
 		{"role": "user", "content": `
 		
 		Your duty is to label the <caption> based on the following <task> and extract key-values accordingly from <data>.
@@ -273,175 +205,78 @@ function getPrompt(chartType, isMulti, target) {
 	return newPromptMsg;
 }
 
-function highLight(response, visID, spec) {
-    const target = response;
-    const rightPanel = document.getElementById('right-panel');
-    const speechResult = rightPanel.querySelector('.panel-content') || rightPanel;
-    
-    // 确保使用vlSpecDict中存储的原始规范
-    let specObj;
-    try {
-        specObj = typeof spec === 'string' ? JSON.parse(spec) : spec;
-    } catch (e) {
-        console.error('解析规范出错:', e);
-        return;
+function parseTaskResponse(content) {
+    const text = content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    let taskList;
+    try { taskList = JSON.parse(text); } catch {
+        throw new Error('The model returned an invalid annotation. Please try again or select another model.');
     }
-    
-    // 存储原始可视化数据（如果尚未存储）
-    if (!originalVisualizations[visID]) {
-        originalVisualizations[visID] = specObj;
-        console.log('已存储原始可视化数据:', visID);
+    const counts = { RETRIEVE: [1, Infinity], COMPARE: [2, Infinity], FILTER: [1, 1], 'TREND^': [2, 2], 'TREND-': [2, 2], TRENDv: [2, 2], RANGE: [2, 2] };
+    const bounds = Array.isArray(taskList) && counts[taskList[0]];
+    if (!bounds || taskList.length - 1 < bounds[0] || taskList.length - 1 > bounds[1] ||
+        taskList.some(value => typeof value !== 'string' || !value.trim())) {
+        throw new Error('The model returned an invalid annotation. Please try again or select another model.');
     }
-    
-    fetch(specObj["data"]["url"])
-        .then(response => response.text())
-        .then(csvData => {
-            let [xList, yList, legendList, isMulti] = getColumn(csvData);
-            let chartType = specObj["mark"];
-            let prompt = getPrompt(chartType, isMulti, target);
-            
-            prompt.messages[1]['content'] += `<data> ${csvData} </data>
-            Please label <caption> and extract from <data>. The response should be given as a python list:`;
-            
-            let payload = {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(prompt)
-            };
-            
-            fetch("/api/chat/completions", payload)
-                .then(async response => {
-                    const data = await response.json();
-                    if (!response.ok) {
-                        throw new Error(data.error?.message || 'AI assistance failed.');
-                    }
-                    return data;
-                })
-                .then(data => {
-                    let taskList = data.choices[0].message.content
-                        .replace(/[\[\]']/g, '')
-                        .split(', ')
-                        .map(item => item.trim());
-                    
-                    // 使用深度复制的原始规范作为基础，进行注释修改
-                    let vega = JSON.parse(JSON.stringify(specObj));
-                    let fieldAndType = getMainSubFieldType(vega);
-                    let mainField = fieldAndType[0];
-                    let mainType = fieldAndType[1];
-                    let subField = fieldAndType[2];
-                    let subType = fieldAndType[3];
-                    let newList = taskList.slice(1);
-                    console.log('task: ', taskList[0]);
+    return taskList;
+}
 
-                    // 生成注释后的可视化，并存储结果
-                    const annotatedVega = highLightHelper(visID, taskList[0], vega, mainField, subField, mainType, subType, newList, xList, yList, taskList, legendList, isMulti, csvData);
-                    
-                    
-                    // 创建唯一ID用于关联消息和图表
-                    const messageId = `message-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-                    
-                    // 创建新消息元素
-                    const newMessage = document.createElement('div');
-                    newMessage.id = messageId;
-                    newMessage.style.position = 'relative';
-                    newMessage.style.paddingRight = '25px';
-                    newMessage.textContent = `${response}`;
-                    
-                    // 添加hover效果，使消息在悬停时高亮显示
-                    newMessage.style.transition = 'background-color 0.3s ease';
-                    newMessage.addEventListener('mouseenter', () => {
-                        newMessage.style.backgroundColor = '#f0f8ff'; // 淡蓝色背景表示活动状态
-                    });
-                    newMessage.addEventListener('mouseleave', () => {
-                        newMessage.style.backgroundColor = '';
-                    });
-                    
-                    // 保存消息与注释图表的关联
-                    messageAnnotationMap[messageId] = {
-                        visId: visID,
-                        annotatedSpec: annotatedVega
-                    };
-                    
-                    // 添加鼠标悬停事件
-                    newMessage.addEventListener('mouseenter', () => {
-                        // 当鼠标悬停在消息上时，显示注释后的图表
-                        const eventData = messageAnnotationMap[messageId];
-                        if (eventData && eventData.annotatedSpec) {
-                            console.log('显示注释图表:', eventData.visId);
-                            const event = new CustomEvent('newVega-message', { 
-                                detail: [eventData.annotatedSpec, eventData.visId] 
-                            });
-                            document.body.dispatchEvent(event);
-                        }
-                    });
-                    
-                    // 添加鼠标离开事件
-                    newMessage.addEventListener('mouseleave', () => {
-                        // 当鼠标离开消息时，恢复原始图表
-                        const originalSpec = originalVisualizations[visID];
-                        if (originalSpec) {
-                            console.log('恢复原始图表:', visID);
-                            const event = new CustomEvent('newVega-message', { 
-                                detail: [originalSpec, visID] 
-                            });
-                            document.body.dispatchEvent(event);
-                        }
-                    });
-					
-					// 创建删除按钮
-					const removeButton = document.createElement('button');
-					removeButton.innerHTML = '&#10005;';
-					removeButton.style.backgroundColor = 'red';
-					removeButton.style.color = 'white';
-					removeButton.style.width = '18px';
-					removeButton.style.height = '18px';
-					removeButton.style.fontSize = '10px';
-					removeButton.style.borderRadius = '3px';
-					removeButton.style.border = 'none';
-					removeButton.style.display = 'flex';
-					removeButton.style.justifyContent = 'center';
-					removeButton.style.alignItems = 'center';
-					removeButton.style.padding = '0';
-					removeButton.style.cursor = 'pointer';
-					removeButton.style.fontWeight = 'bold';
-					removeButton.style.lineHeight = '1';
-					removeButton.style.position = 'absolute';
-					removeButton.style.top = '8px';
-					removeButton.style.right = '8px';
-					
-					// 修改删除按钮点击事件
-					removeButton.addEventListener('click', () => {
-					    // 移除消息
-						newMessage.remove();
-						
-						// 清除消息与图表的关联
-						delete messageAnnotationMap[messageId];
-						
-						// 恢复原始图表
-						const originalSpec = originalVisualizations[visID];
-						if (originalSpec) {
-                            console.log('删除时恢复原始图表:', visID);
-                            const event = new CustomEvent('newVega-message', { 
-                                detail: [originalSpec, visID] 
-                            });
-                            document.body.dispatchEvent(event);
-                        }
-					});
-					
-					newMessage.appendChild(removeButton);
-					speechResult.appendChild(newMessage);
-                })
-                .catch(error => {
-                    console.error('处理API响应时出错:', error);
-                    const notice = document.createElement('div');
-                    notice.setAttribute('role', 'alert');
-                    notice.textContent = error.message;
-                    speechResult.appendChild(notice);
-                });
-        })
-        .catch(error => {
-            console.error('获取CSV数据时出错:', error);
+async function highLight(text, visID, spec) {
+    if (!document.getElementById(visID)) return;
+    const controller = new AbortController();
+    const id = createBoardId('comment');
+    const time = lastCommentTimestamp = Math.max(Date.now(), lastCommentTimestamp + 1);
+    const generation = chartCommentGenerations[visID] || 0;
+    const comment = { id, visId: visID, text, time, generation, status: 'pending' };
+    annotationRequests[id] = { controller, visID };
+    boardEvent('chart-comment', comment);
+    const isCurrent = () => annotationRequests[id]?.controller === controller &&
+        document.getElementById(visID) && generation === (chartCommentGenerations[visID] || 0);
+    try {
+        const specObj = typeof spec === 'string' ? JSON.parse(spec) : structuredClone(spec);
+        if (!specObj.encoding?.x || !specObj.encoding?.y || !specObj.mark) {
+            throw new Error('Comment saved. Automatic annotations need a chart with x and y encodings.');
+        }
+        let csvData;
+        const values = specObj.data?.values || specObj.datasets?.[specObj.data?.name];
+        if (Array.isArray(values)) csvData = d3.csvFormat(values);
+        else if (specObj.data?.url) {
+            const dataset = await fetch(specObj.data.url, { signal: controller.signal });
+            if (!dataset.ok) throw new Error('Comment saved. Could not load the chart data for annotation.');
+            const raw = await dataset.text();
+            if (specObj.data.format?.type === 'json' || /\.json(?:\?|$)/i.test(specObj.data.url)) {
+                const jsonData = JSON.parse(raw);
+                const rows = specObj.data.format?.property ? specObj.data.format.property.split('.').reduce((value, key) => value?.[key], jsonData) : jsonData;
+                if (!Array.isArray(rows)) throw new Error('Comment saved. The chart data could not be read for annotation.');
+                csvData = d3.csvFormat(rows);
+            } else if (specObj.data.format?.type === 'tsv' || /\.tsv(?:\?|$)/i.test(specObj.data.url)) csvData = d3.csvFormat(d3.tsvParse(raw));
+            else csvData = raw;
+        } else throw new Error('Comment saved. No chart data is available for annotation.');
+        const [xList, yList, legendList, isMulti] = getColumn(csvData);
+        const prompt = getPrompt(specObj.mark, isMulti, text);
+        prompt.model = document.getElementById('model-select').value;
+        prompt.messages[1].content += `<data> ${csvData} </data>
+        Please label <caption> and extract from <data>. Return only a JSON array of strings, starting with the task label:`;
+        const response = await fetch('/api/chat/completions', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(prompt), signal: controller.signal
         });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error?.message || 'AI assistance failed.');
+        if (!isCurrent()) return;
+        const taskList = parseTaskResponse(data.choices[0].message.content);
+        const vega = structuredClone(specObj);
+        // Vega-Lite's default mark color also needs to be explicit for the annotation helpers.
+        if (!vega.encoding.color) vega.encoding.color = { value: vega.mark?.color || vega.config?.mark?.color || '#4c78a8' };
+        const [mainField, mainType, subField, subType] = getMainSubFieldType(vega);
+        const annotatedSpec = highLightHelper(visID, taskList[0], vega, mainField, subField, mainType, subType,
+            taskList.slice(1), xList, yList, taskList, legendList, isMulti, csvData);
+        if (!annotatedSpec) throw new Error('Comment saved. Automatic annotations are unavailable for this chart type.');
+        boardEvent('chart-comment', { ...comment, status: 'ready', annotatedSpec });
+    } catch (error) {
+        if (error.name !== 'AbortError' && isCurrent()) {
+            const message = error.name === 'TypeError' ? 'Comment saved. This chart could not be annotated automatically.' : error.message;
+            boardEvent('chart-comment', { ...comment, status: 'error', error: message });
+            notifyBoard(message);
+        }
+    } finally { delete annotationRequests[id]; }
 }

@@ -4,7 +4,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
-const DEFAULT_MODEL = 'ft:gpt-4o-mini-2024-07-18:personal:vischatter-finetune-0319:BCsQ8ZTt';
+export const MODELS = ['deepseek/deepseek-v4.1-flash', 'nvidia/nemotron-3.5-lightning:free', 'openai/gpt-6.1-sol'];
+const DEFAULT_MODEL = MODELS[0];
 const MAX_BODY = 1024 * 1024;
 const PUBLIC_FILES = new Set([
   'index.html', 'style.css', 'connect.js', 'util.js', 'js.js',
@@ -28,17 +29,18 @@ function fail(res, status, message) {
   json(res, status, { error: { message } });
 }
 
-async function readConfig(configPath) {
+export async function readConfig(configPath) {
   try {
-    const config = JSON.parse(await readFile(configPath, 'utf8'));
-    return {
-      apiKey: typeof config.openai?.apiKey === 'string' ? config.openai.apiKey.trim() : '',
-      model: typeof config.openai?.model === 'string' && config.openai.model.trim()
-        ? config.openai.model.trim() : DEFAULT_MODEL,
-    };
+    const text = (await readFile(configPath, 'utf8')).trim();
+    if (!text.startsWith('{')) return { apiKey: text, model: DEFAULT_MODEL };
+    const config = JSON.parse(text);
+    if (typeof config.openrouter?.apiKey !== 'string') throw new Error('Invalid config');
+    const model = config.openrouter.model || DEFAULT_MODEL;
+    if (!MODELS.includes(model)) throw new Error('Invalid model');
+    return { apiKey: config.openrouter.apiKey.trim(), model };
   } catch (error) {
     if (error.code === 'ENOENT') return { apiKey: '', model: DEFAULT_MODEL };
-    throw new Error('Cannot read config/api-keys.json. Check its JSON format and permissions.');
+    throw new Error('Cannot read the OpenRouter key file. Check its format and permissions.');
   }
 }
 
@@ -64,7 +66,7 @@ async function readBody(req) {
 }
 
 export function createApp({
-  configPath = process.env.API_KEYS_FILE || path.join(APP_DIR, 'config/api-keys.json'),
+  configPath = process.env.API_KEYS_FILE || path.join(APP_DIR, 'env/key'),
   publicHostname = process.env.PUBLIC_HOSTNAME || '',
   fetchImpl = fetch,
 } = {}) {
@@ -110,8 +112,10 @@ export function createApp({
           return fail(res, 400, 'Temperature must be a number between 0 and 2.');
         }
         const config = await readConfig(configPath);
+        const model = body.model ?? config.model;
+        if (!MODELS.includes(model)) return fail(res, 400, 'Select a supported OpenRouter model.');
         if (!config.apiKey) {
-          return fail(res, 503, 'AI assistance is not configured yet. Add your OpenAI API key to config/api-keys.json on the server.');
+          return fail(res, 503, 'AI assistance is not configured yet. Add your OpenRouter API key to env/key on the server.');
         }
         const now = Date.now();
         for (const [key, value] of requests) {
@@ -127,34 +131,34 @@ export function createApp({
         requests.set(client, limit);
         let upstream;
         try {
-          upstream = await fetchImpl('https://api.openai.com/v1/chat/completions', {
+          upstream = await fetchImpl('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.apiKey}` },
             body: JSON.stringify({
-              model: config.model,
+              model,
               messages: body.messages.map(({ role, content }) => ({ role, content })),
               temperature,
-              max_tokens: 1024,
+              max_tokens: 4096,
             }),
             signal: AbortSignal.timeout(60000),
           });
         } catch {
-          return fail(res, 502, 'Cannot reach OpenAI. Try again shortly.');
+          return fail(res, 502, 'Cannot reach OpenRouter. Try again shortly.');
         }
         if (!upstream.ok) {
           // Do not return provider errors: they can contain credential fragments.
           const message = upstream.status === 401
-            ? 'OpenAI rejected the API key. Check config/api-keys.json on the server.'
+            ? 'OpenRouter rejected the API key. Check env/key or API_KEYS_FILE on the server.'
             : upstream.status === 404
-              ? 'The configured OpenAI model is unavailable to this key. Check openai.model in config/api-keys.json.'
+              ? 'The selected OpenRouter model is unavailable to this key. Choose another model.'
               : upstream.status === 429
-                ? 'OpenAI quota or rate limit reached. Check your account or try again later.'
-                : 'OpenAI could not complete the request. Try again later.';
+                ? 'OpenRouter quota or rate limit reached. Check your account or try again later.'
+                : 'OpenRouter could not complete the request. Try again later.';
           return fail(res, upstream.status === 429 ? 429 : 502, message);
         }
         const result = await upstream.json();
         const content = result.choices?.[0]?.message?.content;
-        if (typeof content !== 'string') return fail(res, 502, 'OpenAI returned an unexpected response.');
+        if (typeof content !== 'string' || !content.trim()) return fail(res, 502, 'OpenRouter returned an unexpected response.');
         return json(res, 200, { choices: [{ message: { role: 'assistant', content } }] });
       }
       if (!['GET', 'HEAD'].includes(req.method)) {

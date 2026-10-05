@@ -12,26 +12,27 @@ prepare_app() {
         echo '[Error] Node.js 20 or newer is required.' >&2
         exit 1
     }
-    KEY_FILE="${API_KEYS_FILE:-$APP_DIR/config/api-keys.json}"
+    KEY_FILE="${API_KEYS_FILE:-$APP_DIR/env/key}"
     if [[ ! -f "$KEY_FILE" && -n "${API_KEYS_FILE:-}" ]]; then
         echo "[Error] The custom API_KEYS_FILE does not exist: $KEY_FILE" >&2
         exit 1
     fi
     if [[ ! -f "$KEY_FILE" ]]; then
-        (umask 077; cp "$APP_DIR/config/api-keys.example.json" "$APP_DIR/config/api-keys.json")
-        echo "Created private key file: $APP_DIR/config/api-keys.json"
+        mkdir -p "$APP_DIR/env"
+        (umask 077; touch "$APP_DIR/env/key")
+        echo "Created private key file: $APP_DIR/env/key"
     fi
     chmod 600 "$KEY_FILE"
     KEY_FILE="$(cd "$(dirname "$KEY_FILE")" && pwd)/$(basename "$KEY_FILE")"
     export API_KEYS_FILE="$KEY_FILE"
-    node --input-type=module - "$KEY_FILE" <<'JS'
-import { readFileSync } from 'node:fs';
+    node --input-type=module - "$KEY_FILE" "$APP_DIR/server.js" <<'JS'
+import { pathToFileURL } from 'node:url';
+const { readConfig } = await import(pathToFileURL(process.argv[3]));
 try {
-    const config = JSON.parse(readFileSync(process.argv[2], 'utf8'));
-    if (!config.openai || typeof config.openai.apiKey !== 'string') throw new Error();
-    if (!config.openai.apiKey.trim()) console.log('AI assistance will stay unavailable until you fill in openai.apiKey.');
+    const config = await readConfig(process.argv[2]);
+    if (!config.apiKey) console.log('AI assistance will stay unavailable until you add an OpenRouter key to env/key.');
 } catch {
-    console.error('[Error] config/api-keys.json must contain an openai object with an apiKey string.');
+    console.error('[Error] Use a plain-text OpenRouter key or JSON with openrouter.apiKey and a supported openrouter.model.');
     process.exit(1);
 }
 JS
