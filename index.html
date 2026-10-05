@@ -1,6 +1,3 @@
-<!-- {"config": {"background": "#000", "title": {"color": "#fff", "subtitleColor": "#fff"}, "style": {"guide-label": {"fill": "#fff"}, "guide-title": {"fill": "#fff"}}, "axis": {"domainColor": "#fff", "gridColor": "#888", "tickColor": "#fff"}, "range": {"category": ["#7fc97f", "#beaed4", "#fdc086", "#ffff99", "#386cb0", "#f0027f", "#bf5b17", "#666666"]}}, "data": {"url": "https://raw.githubusercontent.com/vis-nlp/Chart-to-text/main/statista_dataset/dataset/data/10030.csv"}, "mark": "bar", "encoding": {"color": {"value": "#386cb0"}, "x": {"type": "quantitative", "axis": {"labelAngle": -30, "title": "New registrations in thousands"}, "field": "New registrations in thousands"}, "y": {"type": "nominal", "axis": {}, "bin": false, "field": "programming language"}}, "title": ["Number of car registrations in Europe in", "2019 , by segment (in 1,000s)"], "$schema": "https://vega.github.io/schema/vega-lite/v4.8.1.json"} -->
-<!-- {"config": {"range": {"category": ["#4c78a8", "#9ecae9", "#f58518", "#ffbf79", "#54a24b", "#88d27a", "#b79a20", "#f2cf5b", "#439894", "#83bcb6", "#e45756", "#ff9d98", "#79706e", "#bab0ac", "#d67195", "#fcbfd2", "#b279a2", "#d6a5c9", "#9e765f", "#d8b5a5"]}}, "data": {"url": "https://raw.githubusercontent.com/vis-nlp/Chart-to-text/main/statista_dataset/dataset/multiColumn/data/4171.csv"}, "mark": "line", "encoding": {"color": {"value": "#d6a5c9"}, "x": {"type": "temporal", "axis": {}, "bin": false, "field": "Month"}, "y": {"type": "quantitative", "axis": {"title": "Facebook fans"}, "field": "Facebook fans"}}, "title": ["Number of Facebook fans/twitter followers", "of the Washington Football Team (NFL) from", "2012 to 2020 (in millions)"], "$schema": "https://vega.github.io/schema/vega-lite/v4.8.1.json"} -->
-<!-- {"config": {"background": "#000", "title": {"color": "#fff", "subtitleColor": "#fff"}, "style": {"guide-label": {"fill": "#fff"}, "guide-title": {"fill": "#fff"}}, "axis": {"domainColor": "#fff", "gridColor": "#888", "tickColor": "#fff"}, "range": {"category": ["#7fc97f", "#beaed4", "#fdc086", "#ffff99", "#386cb0", "#f0027f", "#bf5b17", "#666666"]}}, "data": {"url": "https://raw.githubusercontent.com/vis-nlp/Chart-to-text/main/statista_dataset/dataset/data/10030.csv"}, "mark": "bar", "encoding": {"color": {"value": "#386cb0"}, "x": {"type": "quantitative", "axis": {"labelAngle": -30, "title": "New registrations in thousands"}, "field": "New registrations in thousands"}, "y": {"type": "nominal", "axis": {}, "bin": false, "field": "programming language"}}, "title": ["Number of car registrations in Europe in", "2019 , by segment (in 1,000s)"], "$schema": "https://vega.github.io/schema/vega-lite/v4.8.1.json"} -->
 <!DOCTYPE html>
 <html lang="en">
 
@@ -20,8 +17,14 @@
 <body collaboration="live" custom-events="vl-spec,chart-comment,chart-comments-clear,chart-delete,chart-move,board-clear" ignore-events="SpeechRecognitionEvent,aiAssistToggle">
     <header id="headline">
         <a class="brand" href="./" aria-label="VisChatter home"><span class="brand-mark" aria-hidden="true">V</span><h1>VisChatter</h1></a>
-        <span class="header-divider" aria-hidden="true"></span>
-        <span class="board-name">Whiteboard</span>
+        <div class="header-statuses" data-visconnect-local>
+            <div id="connection-status" class="header-status" data-state="connecting" role="status" aria-live="polite">
+                <span class="connection-dot" aria-hidden="true"></span><span id="connection-status-text">Connecting…</span>
+            </div>
+            <div id="model-status" class="header-status model-status" role="status" aria-live="polite" aria-busy="false" hidden>
+                <span class="loading-spinner" aria-hidden="true"></span><span>Waiting for model response</span>
+            </div>
+        </div>
         <div class="header-buttons">
             <label class="model-control" for="model-select" data-visconnect-local>Model
                 <select id="model-select" aria-label="OpenRouter model">
@@ -35,17 +38,7 @@
     </header>
 
     <main id="whiteboard" aria-label="Visualization whiteboard" data-visconnect-local>
-        <div id="vis-container" aria-label="Charts">
-            <div id="empty-board" data-visconnect-local>
-                <div class="empty-illustration" aria-hidden="true">
-                    <svg viewBox="0 0 64 64"><path d="M12 12v40h42"/><path class="empty-bars" d="M23 42V30m12 12V20m12 22V12"/></svg>
-                </div>
-                <h2>A space for your data stories</h2>
-                <p>Add a visualization to start exploring together.</p>
-                <button type="button" class="text-button" id="empty-add-button">Add your first chart <span aria-hidden="true">↗</span></button>
-            </div>
-        </div>
-        <div class="board-hint" data-visconnect-local><span id="chart-count">0 charts</span><span class="hint-divider">·</span>Drag to arrange. Right-click to comment.</div>
+        <div id="vis-container" aria-label="Charts"></div>
         <div class="toolkit-dock" data-visconnect-local>
             <section id="live-transcript" aria-label="Live transcript" hidden>
                 <div class="transcript-heading"><span id="transcript-indicator" class="record-dot"></span><span id="transcript-status">Live transcript</span></div>
@@ -62,31 +55,47 @@
         <div id="chart-menu" role="menu" aria-label="Visualization actions" data-visconnect-local hidden>
             <button type="button" role="menuitem" data-action="comment">Comment <span aria-hidden="true">↵</span></button>
             <button type="button" role="menuitem" data-action="speech">Speech comment</button>
+            <button id="chart-share-button" type="button" role="menuitem" data-action="share" aria-haspopup="menu" aria-expanded="false" aria-controls="chart-share-menu">Share <span aria-hidden="true">›</span></button>
+            <div id="chart-share-menu" role="menu" aria-label="Share visualization" hidden>
+                <button type="button" role="menuitem" data-action="copy-code">Copy code to clipboard</button>
+                <button type="button" role="menuitem" data-action="download-svg">Download SVG</button>
+                <button type="button" role="menuitem" data-action="download-png">Download PNG</button>
+            </div>
             <div class="menu-divider" role="separator"></div>
             <button type="button" role="menuitem" data-action="clear-comments">Clear all comments</button>
             <button type="button" role="menuitem" data-action="delete" class="danger-text">Delete</button>
         </div>
+        <section id="comment-editor" role="dialog" aria-modal="false" aria-labelledby="comment-title" data-visconnect-local hidden>
+            <form id="comment-form" novalidate>
+                <div class="editor-heading"><h2 id="comment-title">Comment</h2><button id="close-comment-button" type="button" class="icon-button" aria-label="Close comment">×</button></div>
+                <label class="sr-only" for="comment-input">Chart comment</label>
+                <textarea id="comment-input" placeholder="Comment…" required></textarea>
+                <p id="comment-status" class="comment-status" role="status" aria-live="polite" hidden></p>
+                <div class="editor-footer"><button id="speech-comment-button" type="button" class="secondary-button" aria-pressed="false">Speech comment</button><button id="comment-button" type="submit" class="primary-button">Post</button></div>
+            </form>
+        </section>
     </main>
 
     <dialog id="add-dialog" class="board-dialog" aria-labelledby="add-title" data-visconnect-local>
         <form id="add-form" novalidate>
-            <div class="dialog-heading"><div><span class="eyebrow">ON YOUR WHITEBOARD</span><h2 id="add-title">Add a visualization</h2></div><button type="button" class="icon-button" data-close-dialog="add-dialog" aria-label="Close add visualization">×</button></div>
+            <div class="dialog-heading"><h2 id="add-title">Add a visualization</h2><button type="button" class="icon-button" data-close-dialog="add-dialog" aria-label="Close add visualization">×</button></div>
             <p class="dialog-description">Paste your Vega-Lite specification below.</p>
+            <div class="visualization-examples" role="group" aria-label="Example Vega-Lite specifications">
+                <button type="button" class="example-capsule" data-visualization-example="0" aria-pressed="false" aria-controls="input" aria-label="Use example 1: car registrations bar chart">Example 1 · Bar</button>
+                <button type="button" class="example-capsule" data-visualization-example="1" aria-pressed="false" aria-controls="input" aria-label="Use example 2: Facebook fans line chart">Example 2 · Line</button>
+                <button type="button" class="example-capsule" data-visualization-example="2" aria-pressed="false" aria-controls="input" aria-label="Use example 3: car registrations bar chart">Example 3 · Bar</button>
+            </div>
+            <script id="visualization-example-specs" type="application/json">
+[
+{"config": {"background": "#000", "title": {"color": "#fff", "subtitleColor": "#fff"}, "style": {"guide-label": {"fill": "#fff"}, "guide-title": {"fill": "#fff"}}, "axis": {"domainColor": "#fff", "gridColor": "#888", "tickColor": "#fff"}, "range": {"category": ["#7fc97f", "#beaed4", "#fdc086", "#ffff99", "#386cb0", "#f0027f", "#bf5b17", "#666666"]}}, "data": {"url": "https://raw.githubusercontent.com/vis-nlp/Chart-to-text/main/statista_dataset/dataset/data/10030.csv"}, "mark": "bar", "encoding": {"color": {"value": "#386cb0"}, "x": {"type": "quantitative", "axis": {"labelAngle": -30, "title": "New registrations in thousands"}, "field": "New registrations in thousands"}, "y": {"type": "nominal", "axis": {}, "bin": false, "field": "programming language"}}, "title": ["Number of car registrations in Europe in", "2019 , by segment (in 1,000s)"], "$schema": "https://vega.github.io/schema/vega-lite/v4.8.1.json"},
+{"config": {"range": {"category": ["#4c78a8", "#9ecae9", "#f58518", "#ffbf79", "#54a24b", "#88d27a", "#b79a20", "#f2cf5b", "#439894", "#83bcb6", "#e45756", "#ff9d98", "#79706e", "#bab0ac", "#d67195", "#fcbfd2", "#b279a2", "#d6a5c9", "#9e765f", "#d8b5a5"]}}, "data": {"url": "https://raw.githubusercontent.com/vis-nlp/Chart-to-text/main/statista_dataset/dataset/multiColumn/data/4171.csv"}, "mark": "line", "encoding": {"color": {"value": "#d6a5c9"}, "x": {"type": "temporal", "axis": {}, "bin": false, "field": "Month"}, "y": {"type": "quantitative", "axis": {"title": "Facebook fans"}, "field": "Facebook fans"}}, "title": ["Number of Facebook fans/twitter followers", "of the Washington Football Team (NFL) from", "2012 to 2020 (in millions)"], "$schema": "https://vega.github.io/schema/vega-lite/v4.8.1.json"},
+{"config": {"background": "#000", "title": {"color": "#fff", "subtitleColor": "#fff"}, "style": {"guide-label": {"fill": "#fff"}, "guide-title": {"fill": "#fff"}}, "axis": {"domainColor": "#fff", "gridColor": "#888", "tickColor": "#fff"}, "range": {"category": ["#7fc97f", "#beaed4", "#fdc086", "#ffff99", "#386cb0", "#f0027f", "#bf5b17", "#666666"]}}, "data": {"url": "https://raw.githubusercontent.com/vis-nlp/Chart-to-text/main/statista_dataset/dataset/data/10030.csv"}, "mark": "bar", "encoding": {"color": {"value": "#386cb0"}, "x": {"type": "quantitative", "axis": {"labelAngle": -30, "title": "New registrations in thousands"}, "field": "New registrations in thousands"}, "y": {"type": "nominal", "axis": {}, "bin": false, "field": "programming language"}}, "title": ["Number of car registrations in Europe in", "2019 , by segment (in 1,000s)"], "$schema": "https://vega.github.io/schema/vega-lite/v4.8.1.json"}
+]
+            </script>
             <label class="sr-only" for="input">Vega-Lite JSON specification</label>
             <textarea id="input" placeholder='{"data": {"values": [...]}, "mark": "bar", "encoding": {...}}' spellcheck="false" required></textarea>
             <p id="add-error" class="form-error" role="alert" hidden></p>
-            <div class="dialog-footer"><button type="button" class="secondary-button" data-close-dialog="add-dialog">Cancel</button><button id="renderButton" type="submit" class="primary-button">Add to whiteboard</button></div>
-        </form>
-    </dialog>
-
-    <dialog id="comment-dialog" class="board-dialog comment-dialog" aria-labelledby="comment-title" data-visconnect-local>
-        <form id="comment-form" novalidate>
-            <div class="dialog-heading"><div><span class="eyebrow" id="comment-chart-name">CHART COMMENT</span><h2 id="comment-title">Add a comment</h2></div><button type="button" class="icon-button" data-close-dialog="comment-dialog" aria-label="Close comment">×</button></div>
-            <p class="dialog-description">Describe a data point or a pattern to annotate this chart.</p>
-            <label class="sr-only" for="comment-input">Chart comment</label>
-            <textarea id="comment-input" placeholder="What do you see in this chart?" required></textarea>
-            <p id="comment-status" class="comment-status" role="status" aria-live="polite" hidden></p>
-            <div class="dialog-footer"><button id="speech-comment-button" type="button" class="secondary-button" aria-pressed="false">Speech comment</button><button id="comment-button" type="submit" class="primary-button">Post comment</button></div>
+            <div class="dialog-footer"><button type="button" class="secondary-button" data-close-dialog="add-dialog">Cancel</button><button id="renderButton" type="submit" class="primary-button">Add</button></div>
         </form>
     </dialog>
 
@@ -99,6 +108,7 @@
     <script src="drag.js"></script>
     <script src="highlight.js"></script>
     <script src="vega.js"></script>
+    <script src="share.js"></script>
     <script src="delete.js"></script>
 </body>
 </html>

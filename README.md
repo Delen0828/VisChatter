@@ -68,15 +68,16 @@ Detach with Ctrl+B, then D. The processes keep running after SSH disconnects. A 
 
 ## Whiteboard controls
 
-The header keeps the model selector and sharing link. Charts live on a dotted whiteboard and can be dragged to arrange them.
+The header keeps the model selector, sharing link, and connection status. An indeterminate indicator appears while model responses are pending. Charts live on a dotted whiteboard and can be dragged to arrange them.
 
 - **Add** in the bottom toolkit opens a popup for Vega-Lite JSON, including specs with inline data.
-- Right-click a chart (or use its **···** button) for **Comment**, **Speech comment**, **Clear all comments**, and **Delete**. Speech comments fill an editable draft; choose **Post comment** to add the comment and generate its annotation.
-- A chart with comments shows a translucent **+X** bubble. Click it to open the comment list, then hover or focus a comment to preview its annotation. Leaving the comment restores the latest annotation by submission timestamp, even when AI requests finish out of order.
+- Right-click a chart (or use its **···** button) for **Comment**, **Speech comment**, **Share**, **Clear all comments**, and **Delete**. Comments open in a small box beside the chart. Speech comments fill an editable draft there; choose **Post** to add the comment and generate its annotation.
+- A chart with comments shows a translucent **+X** bubble. Click it to open a compact version list above the plot. Hover or focus a comment to preview its annotation, or preview **Base version** for the original chart. The round button on the right locks that version as the default. Leaving a preview restores your selected default; until you select one, it restores the latest annotation by submission timestamp, even when AI requests finish out of order.
+- **Share** opens **Copy code to clipboard**, **Download SVG**, and **Download PNG**. All three use the visualization version selected when the actions menu opens, including the base version. Code is formatted Vega-Lite JSON; PNGs export at twice the chart's resolution.
 - **Clear** removes all charts and their comments. Clearing comments or deleting a chart cancels its pending annotation requests.
 - **Record** toggles continuous speech recognition and displays a live transcript above the toolkit. It works without selecting a chart and does not create comments or request AI annotations. The transcript stays visible when recording is paused.
 
-Chart additions, movements, comments, and deletions use the existing collaboration connection. Comment drafts, annotation previews, and live transcripts stay local to each browser.
+Chart additions, movements, comments, and deletions use the existing collaboration connection. Comment drafts, annotation previews, default version choices, and live transcripts stay local to each browser.
 
 ## Local development
 
@@ -115,5 +116,4 @@ Run `npm test` for whiteboard checks covering comment ordering, annotation previ
 `Analyze/Formative` contains all the code and raw data used for the second formative study.
 
 `Analyze/Test` contains all the code used for comparing the performance between GPT-4-turbo and fine-tuned llama-3-8b.
-
 

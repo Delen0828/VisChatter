@@ -30,7 +30,7 @@ async function fixture(t, { apiKey = '', fetchImpl, model = MODELS[0] } = {}) {
 
 test('serves frontend and datasets while denying secrets, source history and hosting files', async t => {
   const app = await fixture(t);
-  for (const url of ['/', '/util.js', '/data/federal.json', '/gapminder.csv']) {
+  for (const url of ['/', '/util.js', '/share.js', '/data/federal.json', '/gapminder.csv']) {
     assert.equal((await app.get(url)).status, 200, url);
   }
   for (const url of ['/env/key', '/env/key.json', '/config/api-keys.json', '/config/api-keys.example.json', '/.git/config', '/server.js', '/start-server.sh', '/.runtime/cloudflared.yml', '/%63onfig/api-keys.json', '/data/../config/api-keys.json']) {

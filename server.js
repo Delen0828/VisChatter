@@ -9,7 +9,7 @@ const DEFAULT_MODEL = MODELS[0];
 const MAX_BODY = 1024 * 1024;
 const PUBLIC_FILES = new Set([
   'index.html', 'style.css', 'connect.js', 'util.js', 'js.js',
-  'visconnect-bundle.js', 'drag.js', 'highlight.js', 'vega.js',
+  'visconnect-bundle.js', 'drag.js', 'highlight.js', 'vega.js', 'share.js',
   'delete.js', 'sidebar-toggle.js', 'election-trimmed.csv', 'gapminder.csv',
   'seattle-weather-trimmed.csv', 'seattle-weather.csv', 'stock-trimmed.csv', 'stock.csv',
   'data/federal.json', 'data/employ.json',

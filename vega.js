@@ -22,11 +22,11 @@ function renderVegaLite(spec, uniqueId = createBoardId('vis')) {
             <button type="button" class="chart-menu-button" aria-label="Visualization actions" aria-haspopup="menu">···</button>
         </div>
     </div>
-    <div class="chart-visualization"></div>
     <section id="${uniqueId}-comments" class="comment-popover" aria-label="Chart comments" data-visconnect-local hidden>
         <div class="comment-popover-heading"><h3>Comments</h3><button type="button" class="icon-button" aria-label="Close comments">×</button></div>
         <ol class="comment-list"></ol>
-    </section>`;
+    </section>
+    <div class="chart-visualization"></div>`;
     chartComments[uniqueId] = [];
     originalVisualizations[uniqueId] = structuredClone(vegaLiteSpec);
     callApi(JSON.stringify(vegaLiteSpec), uniqueId);
@@ -47,7 +47,6 @@ function renderVegaLite(spec, uniqueId = createBoardId('vis')) {
     makeDraggable(chart);
     makeSelectable(chart);
     reRenderVegaLite(vegaLiteSpec, uniqueId);
-    updateBoardState();
 }
 
 function reRenderVegaLite(spec, uniqueId) {

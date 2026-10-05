@@ -9,8 +9,10 @@ function clearChartComments(visID, generation = (chartCommentGenerations[visID] 
     cancelChartAnnotations(visID);
     chartComments[visID] = [];
     delete previewedComments[visID];
+    delete defaultAnnotations[visID];
     renderChartComments(visID);
     showDefaultAnnotation(visID);
+    updateModelStatus();
 }
 function deleteChart(visID) {
     const chart = document.getElementById(visID);
@@ -18,10 +20,10 @@ function deleteChart(visID) {
     cancelChartAnnotations(visID);
     chart.vegaView?.finalize();
     chart.remove();
-    for (const dictionary of [apiResponseDict, vlSpecDict, msgPool, specPool, chartComments, originalVisualizations, previewedComments, chartCommentGenerations]) delete dictionary[visID];
-    if (commentChartId === visID) commentDialog.close();
+    for (const dictionary of [apiResponseDict, vlSpecDict, msgPool, specPool, chartComments, originalVisualizations, previewedComments, defaultAnnotations, chartCommentGenerations]) delete dictionary[visID];
+    if (commentChartId === visID) closeCommentEditor();
     if (menuChartId === visID) closeChartMenu();
-    updateBoardState();
+    updateModelStatus();
 }
 document.body.addEventListener('chart-comments-clear', event => clearChartComments(event.detail.visId, event.detail.generation));
 document.body.addEventListener('chart-delete', event => deleteChart(event.detail.visId));
@@ -29,7 +31,7 @@ document.body.addEventListener('board-clear', () => {
     closeChartMenu();
     document.querySelectorAll('.draggable-chart').forEach(chart => deleteChart(chart.id));
     document.getElementById('input').value = '';
-    updateBoardState();
+    updateModelStatus();
 });
 document.getElementById('clearButton').addEventListener('click', () => boardEvent('board-clear', {}));
 // Right-click opens actions; deletion is only performed by the Delete menu item.

@@ -3,6 +3,8 @@ const vlSpecDict = {};
 const chartComments = {};
 const chartCommentGenerations = {};
 const previewedComments = {};
+const defaultAnnotations = {};
+const BASE_VERSION = 'base';
 
 // Model selection, editing controls, and microphones stay local to this browser.
 const modelSelect = document.getElementById('model-select');
@@ -24,19 +26,20 @@ function notifyBoard(text) {
     clearTimeout(notifyBoard.timer);
     notifyBoard.timer = setTimeout(() => { notice.hidden = true; }, 6000);
 }
-function updateBoardState() {
-    const count = document.querySelectorAll('.draggable-chart').length;
-    document.getElementById('empty-board').hidden = count > 0;
-    document.getElementById('chart-count').textContent = `${count} chart${count === 1 ? '' : 's'}`;
+function updateModelStatus() {
+    const pending = Object.values(chartComments).flat().filter(comment => comment.status === 'pending').length;
+    const status = document.getElementById('model-status');
+    status.hidden = pending === 0;
+    status.setAttribute('aria-busy', String(pending > 0));
 }
 function openAddDialog() {
     closeChartMenu();
+    closeCommentEditor();
     document.getElementById('add-error').hidden = true;
     document.getElementById('add-dialog').showModal();
     document.getElementById('input').focus();
 }
 document.getElementById('addButton').addEventListener('click', openAddDialog);
-document.getElementById('empty-add-button').addEventListener('click', openAddDialog);
 document.querySelectorAll('[data-close-dialog]').forEach(button => {
     button.addEventListener('click', () => document.getElementById(button.dataset.closeDialog).close());
 });
@@ -55,7 +58,27 @@ function latestChartAnnotation(visID) {
     return sortedChartComments(visID).find(comment => comment.annotatedSpec);
 }
 function defaultChartSpec(visID) {
-    return latestChartAnnotation(visID)?.annotatedSpec || originalVisualizations[visID];
+    const selected = defaultAnnotations[visID];
+    if (selected === BASE_VERSION) return originalVisualizations[visID];
+    return chartComments[visID]?.find(comment => comment.id === selected)?.annotatedSpec
+        || latestChartAnnotation(visID)?.annotatedSpec || originalVisualizations[visID];
+}
+function currentChartSpec(visID) {
+    const preview = previewedComments[visID];
+    if (preview === BASE_VERSION) return originalVisualizations[visID];
+    return chartComments[visID]?.find(comment => comment.id === preview)?.annotatedSpec || defaultChartSpec(visID);
+}
+function updateDefaultAnnotationButtons(visID) {
+    const selected = defaultAnnotations[visID] || latestChartAnnotation(visID)?.id || BASE_VERSION;
+    document.getElementById(visID)?.querySelectorAll('.annotation-choice').forEach(button => {
+        button.setAttribute('aria-pressed', String(button.dataset.versionId === selected));
+    });
+}
+function setDefaultAnnotation(visID, versionId) {
+    if (versionId !== BASE_VERSION && !chartComments[visID]?.some(comment => comment.id === versionId && comment.annotatedSpec)) return;
+    defaultAnnotations[visID] = versionId;
+    showDefaultAnnotation(visID);
+    updateDefaultAnnotationButtons(visID);
 }
 function showDefaultAnnotation(visID) {
     delete previewedComments[visID];
@@ -64,7 +87,27 @@ function showDefaultAnnotation(visID) {
 }
 function previewComment(visID, comment) {
     previewedComments[visID] = comment.id;
-    reRenderVegaLite(comment.annotatedSpec || defaultChartSpec(visID), visID);
+    reRenderVegaLite(currentChartSpec(visID), visID);
+}
+function addAnnotationChoice(item, visID, versionId, label, available = true) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'annotation-choice';
+    button.dataset.versionId = versionId;
+    button.disabled = !available;
+    button.setAttribute('aria-label', `Set ${label} as the default visualization`);
+    button.title = `Set ${label} as default`;
+    button.addEventListener('click', () => setDefaultAnnotation(visID, versionId));
+    item.appendChild(button);
+}
+function addAnnotationPreview(item, visID, versionId) {
+    const preview = () => previewComment(visID, { id: versionId });
+    item.addEventListener('mouseenter', preview);
+    item.addEventListener('mouseleave', () => showDefaultAnnotation(visID));
+    item.addEventListener('focusin', preview);
+    item.addEventListener('focusout', event => {
+        if (!item.contains(event.relatedTarget)) showDefaultAnnotation(visID);
+    });
 }
 function closeCommentList(chart) {
     const popover = chart.querySelector('.comment-popover');
@@ -95,7 +138,18 @@ function renderChartComments(visID) {
     if (!comments.length) { popover.hidden = true; bubble.setAttribute('aria-expanded', 'false'); }
     const list = chart.querySelector('.comment-list');
     list.replaceChildren();
-    const latest = latestChartAnnotation(visID);
+    if (comments.length) {
+        const base = document.createElement('li');
+        base.className = 'comment-item base-version';
+        base.tabIndex = 0;
+        const text = document.createElement('p');
+        text.className = 'comment-text';
+        text.textContent = 'Base version';
+        base.appendChild(text);
+        addAnnotationChoice(base, visID, BASE_VERSION, 'base version');
+        addAnnotationPreview(base, visID, BASE_VERSION);
+        list.appendChild(base);
+    }
     for (const comment of comments) {
         const item = document.createElement('li');
         item.className = 'comment-item';
@@ -110,10 +164,10 @@ function renderChartComments(visID) {
         time.dateTime = new Date(comment.time).toISOString();
         time.textContent = new Date(comment.time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
         meta.appendChild(time);
-        if (comment.status === 'pending' || comment.id === latest?.id) {
+        if (comment.status === 'pending') {
             const label = document.createElement('span');
             label.className = 'latest-label';
-            label.textContent = comment.status === 'pending' ? 'Annotating…' : 'Latest annotation';
+            label.textContent = 'Annotating…';
             meta.appendChild(label);
         }
         item.append(text, meta);
@@ -123,12 +177,11 @@ function renderChartComments(visID) {
             error.textContent = comment.error;
             item.appendChild(error);
         }
-        item.addEventListener('mouseenter', () => previewComment(visID, comment));
-        item.addEventListener('mouseleave', () => showDefaultAnnotation(visID));
-        item.addEventListener('focus', () => previewComment(visID, comment));
-        item.addEventListener('blur', () => showDefaultAnnotation(visID));
+        addAnnotationChoice(item, visID, comment.id, `annotation: ${comment.text}`, !!comment.annotatedSpec);
+        addAnnotationPreview(item, visID, comment.id);
         list.appendChild(item);
     }
+    updateDefaultAnnotationButtons(visID);
 }
 document.body.addEventListener('chart-comment', event => {
     const comment = event.detail;
@@ -145,36 +198,96 @@ document.body.addEventListener('chart-comment', event => {
     const previewId = previewedComments[comment.visId];
     renderChartComments(comment.visId);
     const preview = comments.find(entry => entry.id === previewId);
-    if (preview?.annotatedSpec) previewComment(comment.visId, preview);
+    if (previewId === BASE_VERSION || preview) previewComment(comment.visId, { id: previewId });
     else showDefaultAnnotation(comment.visId);
+    updateModelStatus();
 });
 
 const chartMenu = document.getElementById('chart-menu');
+const shareMenu = document.getElementById('chart-share-menu');
+const shareButton = document.getElementById('chart-share-button');
 let menuChartId = null;
-function closeChartMenu() { chartMenu.hidden = true; menuChartId = null; }
+let menuChartSpec = null;
+function closeShareMenu() {
+    shareMenu.hidden = true;
+    shareButton.setAttribute('aria-expanded', 'false');
+}
+function closeChartMenu() {
+    closeShareMenu();
+    chartMenu.hidden = true;
+    menuChartId = null;
+    menuChartSpec = null;
+}
 function openChartMenu(chart, x, y) {
+    const spec = structuredClone(currentChartSpec(chart.id));
+    closeCommentEditor();
     document.querySelectorAll('.draggable-chart').forEach(closeCommentList);
+    closeShareMenu();
     selectChart(chart);
     menuChartId = chart.id;
+    menuChartSpec = spec;
     chartMenu.hidden = false;
     const rect = chartMenu.getBoundingClientRect();
     chartMenu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - rect.width - 8))}px`;
     chartMenu.style.top = `${Math.max(document.getElementById('headline').offsetHeight + 8, Math.min(y, window.innerHeight - rect.height - 8))}px`;
     chartMenu.querySelector('button').focus();
 }
+function shareMenuPosition(anchor, size, viewport, headerHeight) {
+    const minY = headerHeight + 8;
+    let x = anchor.right + 4;
+    let y = anchor.top;
+    if (x + size.width > viewport.width - 8) {
+        x = anchor.left - size.width - 4;
+        if (x < 8) { x = anchor.left; y = anchor.bottom + 4; }
+    }
+    return {
+        x: Math.max(8, Math.min(x, viewport.width - size.width - 8)),
+        y: Math.max(minY, Math.min(y, viewport.height - size.height - 8))
+    };
+}
+function openShareMenu(focus = false) {
+    if (!menuChartId) return;
+    shareMenu.hidden = false;
+    shareButton.setAttribute('aria-expanded', 'true');
+    const position = shareMenuPosition(chartMenu.getBoundingClientRect(), shareMenu.getBoundingClientRect(),
+        { width: window.innerWidth, height: window.innerHeight }, document.getElementById('headline').offsetHeight);
+    shareMenu.style.left = `${position.x}px`;
+    shareMenu.style.top = `${position.y}px`;
+    if (focus) shareMenu.querySelector('button').focus();
+}
+shareButton.addEventListener('mouseenter', () => openShareMenu());
+chartMenu.addEventListener('mouseover', event => {
+    const button = event.target.closest('[data-action]');
+    if (button && button !== shareButton && !shareMenu.contains(button)) closeShareMenu();
+});
 chartMenu.addEventListener('click', event => {
     const button = event.target.closest('[data-action]');
     if (!button || !menuChartId) return;
+    if (button.dataset.action === 'share') { openShareMenu(true); return; }
     const visID = menuChartId;
+    const spec = menuChartSpec;
     closeChartMenu();
-    if (button.dataset.action === 'comment') openCommentDialog(visID);
-    if (button.dataset.action === 'speech') openCommentDialog(visID, true);
+    if (['copy-code', 'download-svg', 'download-png'].includes(button.dataset.action)) {
+        shareChartVersion(spec, button.dataset.action);
+        return;
+    }
+    if (button.dataset.action === 'comment') openCommentEditor(visID);
+    if (button.dataset.action === 'speech') openCommentEditor(visID, true);
     if (button.dataset.action === 'clear-comments') boardEvent('chart-comments-clear', { visId: visID, generation: (chartCommentGenerations[visID] || 0) + 1 });
     if (button.dataset.action === 'delete') boardEvent('chart-delete', { visId: visID });
 });
 chartMenu.addEventListener('keydown', event => {
-    const buttons = [...chartMenu.querySelectorAll('button')];
+    const inShareMenu = shareMenu.contains(event.target);
+    const buttons = inShareMenu ? [...shareMenu.querySelectorAll('button')]
+        : [...chartMenu.querySelectorAll('button')].filter(button => !shareMenu.contains(button));
     const index = buttons.indexOf(document.activeElement);
+    if (event.key === 'ArrowRight' && document.activeElement === shareButton) {
+        event.preventDefault(); openShareMenu(true); return;
+    }
+    if (inShareMenu && (event.key === 'ArrowLeft' || event.key === 'Escape')) {
+        event.preventDefault(); event.stopPropagation(); closeShareMenu(); shareButton.focus(); return;
+    }
+    if (!inShareMenu && !['Enter', ' ', 'ArrowRight'].includes(event.key)) closeShareMenu();
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault();
         buttons[(index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length].focus();
@@ -184,6 +297,8 @@ chartMenu.addEventListener('keydown', event => {
     if (event.key === 'Tab') closeChartMenu();
 });
 document.addEventListener('click', event => {
+    const chart = document.getElementById(commentChartId);
+    if (!commentEditor.hidden && !commentEditor.contains(event.target) && !chart?.contains(event.target) && !event.target.closest('#chart-menu')) closeCommentEditor();
     if (!event.target.closest('#chart-menu, .chart-menu-button')) closeChartMenu();
     document.querySelectorAll('.draggable-chart').forEach(chart => {
         if (!chart.contains(event.target)) closeCommentList(chart);
@@ -191,26 +306,66 @@ document.addEventListener('click', event => {
 });
 document.addEventListener('keydown', event => {
     if (event.key === 'Escape') {
+        closeCommentEditor(true);
         const chart = document.getElementById(menuChartId);
         closeChartMenu();
         if (chart) chart.focus();
         document.querySelectorAll('.draggable-chart').forEach(closeCommentList);
     }
 });
-window.addEventListener('resize', closeChartMenu);
-document.getElementById('vis-container').addEventListener('scroll', closeChartMenu);
+window.addEventListener('resize', () => { closeChartMenu(); positionCommentEditor(); });
+document.getElementById('vis-container').addEventListener('scroll', () => { closeChartMenu(); positionCommentEditor(); });
+document.body.addEventListener('chart-move', event => {
+    if (event.detail.visId === commentChartId) requestAnimationFrame(positionCommentEditor);
+});
 
-const commentDialog = document.getElementById('comment-dialog');
+const commentEditor = document.getElementById('comment-editor');
 const commentInput = document.getElementById('comment-input');
 let commentChartId = null;
-function openCommentDialog(visID, speech = false) {
+
+function commentEditorPosition(anchor, size, viewport, headerHeight) {
+    const gap = 12;
+    const minY = headerHeight + 8;
+    let x = anchor.right + gap;
+    let y = anchor.top;
+    if (x + size.width > viewport.width - 8) {
+        if (anchor.left - gap - size.width >= 8) x = anchor.left - gap - size.width;
+        else { x = anchor.left; y = anchor.bottom + gap; }
+    }
+    return {
+        x: Math.max(8, Math.min(x, viewport.width - size.width - 8)),
+        y: Math.max(minY, Math.min(y, viewport.height - size.height - 8))
+    };
+}
+function positionCommentEditor() {
+    if (commentEditor.hidden) return;
+    const chart = document.getElementById(commentChartId);
+    if (!chart) { closeCommentEditor(); return; }
+    const position = commentEditorPosition(chart.getBoundingClientRect(), commentEditor.getBoundingClientRect(),
+        { width: window.innerWidth, height: window.innerHeight }, document.getElementById('headline').offsetHeight);
+    commentEditor.style.left = `${position.x}px`;
+    commentEditor.style.top = `${position.y}px`;
+}
+function closeCommentEditor(restoreFocus = false) {
+    if (speechSession?.mode === 'comment') stopSpeechSession();
+    const chart = document.getElementById(commentChartId);
+    commentEditor.hidden = true;
+    commentChartId = null;
+    if (restoreFocus && chart) chart.focus();
+}
+function openCommentEditor(visID, speech = false) {
     if (!vlSpecDict[visID]) return;
+    closeCommentEditor();
+    closeChartMenu();
+    const chart = document.getElementById(visID);
+    selectChart(chart);
     commentChartId = visID;
     commentInput.value = '';
     commentInput.setCustomValidity('');
-    document.getElementById('comment-chart-name').textContent = document.getElementById(visID).querySelector('.chart-name').textContent;
+    commentEditor.setAttribute('aria-label', `Comment on ${chart.getAttribute('aria-label') || 'chart'}`);
     setCommentStatus('');
-    commentDialog.showModal();
+    commentEditor.hidden = false;
+    positionCommentEditor();
     commentInput.focus();
     if (speech) startCommentSpeech();
 }
@@ -218,19 +373,17 @@ function setCommentStatus(text) {
     const status = document.getElementById('comment-status');
     status.textContent = text;
     status.hidden = !text;
+    positionCommentEditor();
 }
+document.getElementById('close-comment-button').addEventListener('click', () => closeCommentEditor(true));
 commentInput.addEventListener('input', () => commentInput.setCustomValidity(''));
 document.getElementById('comment-form').addEventListener('submit', event => {
     event.preventDefault();
     const text = commentInput.value.trim();
     if (!text) { commentInput.setCustomValidity('Enter a comment.'); commentInput.reportValidity(); return; }
-    if (!vlSpecDict[commentChartId]) { commentDialog.close(); return; }
+    if (!vlSpecDict[commentChartId]) { closeCommentEditor(); return; }
     highLight(text, commentChartId, vlSpecDict[commentChartId]);
-    commentDialog.close();
-});
-commentDialog.addEventListener('close', () => {
-    if (speechSession?.mode === 'comment') stopSpeechSession();
-    commentChartId = null;
+    closeCommentEditor(true);
 });
 
 function getColumn(csvData) {
@@ -362,9 +515,6 @@ const shareObserver = new MutationObserver(() => {
     invite.setAttribute('role', 'button');
     invite.tabIndex = 0;
     invite.setAttribute('aria-label', 'Copy whiteboard sharing link');
-    const label = document.createElement('span');
-    label.textContent = 'Share';
-    invite.appendChild(label);
     invite.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); invite.click(); }
     });

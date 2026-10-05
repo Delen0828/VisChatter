@@ -38,6 +38,24 @@ async function setUrl(number) {
 
 const textInput = document.getElementById('input');
 const renderButton = document.getElementById('renderButton');
+const visualizationExampleButtons = [...document.querySelectorAll('[data-visualization-example]')];
+function deselectVisualizationExamples() {
+    visualizationExampleButtons.forEach(button => button.setAttribute('aria-pressed', 'false'));
+}
+visualizationExampleButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        const wasSelected = button.getAttribute('aria-pressed') === 'true';
+        deselectVisualizationExamples();
+        if (wasSelected) textInput.value = '';
+        else {
+            const examples = JSON.parse(document.getElementById('visualization-example-specs').textContent);
+            textInput.value = JSON.stringify(examples[Number(button.dataset.visualizationExample)], null, 2);
+            button.setAttribute('aria-pressed', 'true');
+        }
+        document.getElementById('add-error').hidden = true;
+    });
+});
+textInput.addEventListener('input', deselectVisualizationExamples);
 const msgPool = {};
 const specPool = {};
 const originalVisualizations = {};
@@ -63,6 +81,7 @@ document.getElementById('add-form').addEventListener('submit', async event => {
         boardEvent('vl-spec', msgData);
         document.getElementById('add-dialog').close();
         textInput.value = '';
+        deselectVisualizationExamples();
     } catch (error) {
         errorNotice.textContent = `Could not add visualization: ${error.message}`;
         errorNotice.hidden = false;
