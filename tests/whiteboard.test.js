@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 
-const sources = await Promise.all(['identity.js', 'js.js', 'util.js', 'highlight.js', 'share.js', 'delete.js'].map(file => readFile(new URL(`../${file}`, import.meta.url), 'utf8')));
+const sources = await Promise.all(['identity.js', 'js.js', 'util.js', 'highlight.js', 'share.js', 'delete.js'].map(file => readFile(new URL(`../src/${file}`, import.meta.url), 'utf8')));
 
 // A small event-driven DOM fixture keeps these behavior tests dependency-free.
 function setup({ ownId = 'presenter', leaderId = 'presenter', autoJoin = true, sendProfileMessage } = {}) {
@@ -280,7 +280,7 @@ test('the comment pipeline retains the chosen username through annotation comple
 
 test('profile transport uses open peer connections, delivers once per peer, and trusts the connection sender', async () => {
     const fixture = setup();
-    const bundle = await readFile(new URL('../visconnect-bundle.js', import.meta.url), 'utf8');
+    const bundle = await readFile(new URL('../src/visconnect-bundle.js', import.meta.url), 'utf8');
     vm.runInContext(bundle.slice(bundle.indexOf('var VcCommunication ='), bundle.indexOf('var VC_MESSAGE_TYPE;')), fixture.context);
     const communication = Object.create(fixture.context.VcCommunication.prototype);
     const sent = [];
@@ -740,7 +740,7 @@ test('a standard bar spec without an explicit color can still receive an annotat
 });
 
 test('local controls register immediately while shared listeners wait for VisConnect initialization', async () => {
-    const bundle = await readFile(new URL('../visconnect-bundle.js', import.meta.url), 'utf8');
+    const bundle = await readFile(new URL('../src/visconnect-bundle.js', import.meta.url), 'utf8');
     const source = bundle.slice(bundle.indexOf('function delayAddEventListener()'), bundle.indexOf('function disableStopPropagation()'));
     const callbacks = [];
     class Element {
@@ -809,7 +809,7 @@ test('comment editor anchors beside its chart and stays within the viewport', ()
 
 test('connection states stay in the header without creating a loading overlay', async () => {
     const { context, nodes } = setup();
-    const bundle = await readFile(new URL('../visconnect-bundle.js', import.meta.url), 'utf8');
+    const bundle = await readFile(new URL('../src/visconnect-bundle.js', import.meta.url), 'utf8');
     const source = bundle.slice(bundle.indexOf('var VisConnectUi ='), bundle.indexOf('// From https://hackernoon.com/copying-text'));
     vm.runInContext(source, context);
     const communication = { opened: false, getNumberOfConnections: () => 0 };

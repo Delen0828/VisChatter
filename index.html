@@ -99,13 +99,6 @@
                 <button type="button" class="example-capsule" data-visualization-example="1" aria-pressed="false" aria-controls="input" aria-label="Use example 2: Facebook fans line chart">Example 2 · Line</button>
                 <button type="button" class="example-capsule" data-visualization-example="2" aria-pressed="false" aria-controls="input" aria-label="Use example 3: car registrations bar chart">Example 3 · Bar</button>
             </div>
-            <script id="visualization-example-specs" type="application/json">
-[
-{"config": {"background": "#000", "title": {"color": "#fff", "subtitleColor": "#fff"}, "style": {"guide-label": {"fill": "#fff"}, "guide-title": {"fill": "#fff"}}, "axis": {"domainColor": "#fff", "gridColor": "#888", "tickColor": "#fff"}, "range": {"category": ["#7fc97f", "#beaed4", "#fdc086", "#ffff99", "#386cb0", "#f0027f", "#bf5b17", "#666666"]}}, "data": {"url": "https://raw.githubusercontent.com/vis-nlp/Chart-to-text/main/statista_dataset/dataset/data/10030.csv"}, "mark": "bar", "encoding": {"color": {"value": "#386cb0"}, "x": {"type": "quantitative", "axis": {"labelAngle": -30, "title": "New registrations in thousands"}, "field": "New registrations in thousands"}, "y": {"type": "nominal", "axis": {}, "bin": false, "field": "programming language"}}, "title": ["Number of car registrations in Europe in", "2019 , by segment (in 1,000s)"], "$schema": "https://vega.github.io/schema/vega-lite/v4.8.1.json"},
-{"config": {"range": {"category": ["#4c78a8", "#9ecae9", "#f58518", "#ffbf79", "#54a24b", "#88d27a", "#b79a20", "#f2cf5b", "#439894", "#83bcb6", "#e45756", "#ff9d98", "#79706e", "#bab0ac", "#d67195", "#fcbfd2", "#b279a2", "#d6a5c9", "#9e765f", "#d8b5a5"]}}, "data": {"url": "https://raw.githubusercontent.com/vis-nlp/Chart-to-text/main/statista_dataset/dataset/multiColumn/data/4171.csv"}, "mark": "line", "encoding": {"color": {"value": "#d6a5c9"}, "x": {"type": "temporal", "axis": {}, "bin": false, "field": "Month"}, "y": {"type": "quantitative", "axis": {"title": "Facebook fans"}, "field": "Facebook fans"}}, "title": ["Number of Facebook fans/twitter followers", "of the Washington Football Team (NFL) from", "2012 to 2020 (in millions)"], "$schema": "https://vega.github.io/schema/vega-lite/v4.8.1.json"},
-{"config": {"background": "#000", "title": {"color": "#fff", "subtitleColor": "#fff"}, "style": {"guide-label": {"fill": "#fff"}, "guide-title": {"fill": "#fff"}}, "axis": {"domainColor": "#fff", "gridColor": "#888", "tickColor": "#fff"}, "range": {"category": ["#7fc97f", "#beaed4", "#fdc086", "#ffff99", "#386cb0", "#f0027f", "#bf5b17", "#666666"]}}, "data": {"url": "https://raw.githubusercontent.com/vis-nlp/Chart-to-text/main/statista_dataset/dataset/data/10030.csv"}, "mark": "bar", "encoding": {"color": {"value": "#386cb0"}, "x": {"type": "quantitative", "axis": {"labelAngle": -30, "title": "New registrations in thousands"}, "field": "New registrations in thousands"}, "y": {"type": "nominal", "axis": {}, "bin": false, "field": "programming language"}}, "title": ["Number of car registrations in Europe in", "2019 , by segment (in 1,000s)"], "$schema": "https://vega.github.io/schema/vega-lite/v4.8.1.json"}
-]
-            </script>
             <label class="sr-only" for="input">Vega-Lite JSON specification</label>
             <textarea id="input" placeholder='{"data": {"values": [...]}, "mark": "bar", "encoding": {...}}' spellcheck="false" required></textarea>
             <p id="add-error" class="form-error" role="alert" hidden></p>
@@ -115,15 +108,15 @@
 
     <div id="visPlayground" hidden></div>
     <canvas id="canvas" hidden></canvas>
-    <script src="connect.js"></script>
-    <script src="visconnect-bundle.js"></script>
-    <script src="identity.js"></script>
-    <script src="util.js"></script>
-    <script src="js.js"></script>
-    <script src="drag.js"></script>
-    <script src="highlight.js"></script>
-    <script src="vega.js"></script>
-    <script src="share.js"></script>
-    <script src="delete.js"></script>
+    <script src="src/connect.js"></script>
+    <script src="src/visconnect-bundle.js"></script>
+    <script src="src/identity.js"></script>
+    <script src="src/util.js"></script>
+    <script src="src/js.js"></script>
+    <script src="src/drag.js"></script>
+    <script src="src/highlight.js"></script>
+    <script src="src/vega.js"></script>
+    <script src="src/share.js"></script>
+    <script src="src/delete.js"></script>
 </body>
 </html>

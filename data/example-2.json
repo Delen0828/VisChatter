@@ -1,0 +1,56 @@
+{
+  "config": {
+    "range": {
+      "category": [
+        "#4c78a8",
+        "#9ecae9",
+        "#f58518",
+        "#ffbf79",
+        "#54a24b",
+        "#88d27a",
+        "#b79a20",
+        "#f2cf5b",
+        "#439894",
+        "#83bcb6",
+        "#e45756",
+        "#ff9d98",
+        "#79706e",
+        "#bab0ac",
+        "#d67195",
+        "#fcbfd2",
+        "#b279a2",
+        "#d6a5c9",
+        "#9e765f",
+        "#d8b5a5"
+      ]
+    }
+  },
+  "data": {
+    "url": "https://raw.githubusercontent.com/vis-nlp/Chart-to-text/main/statista_dataset/dataset/multiColumn/data/4171.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "color": {
+      "value": "#d6a5c9"
+    },
+    "x": {
+      "type": "temporal",
+      "axis": {},
+      "bin": false,
+      "field": "Month"
+    },
+    "y": {
+      "type": "quantitative",
+      "axis": {
+        "title": "Facebook fans"
+      },
+      "field": "Facebook fans"
+    }
+  },
+  "title": [
+    "Number of Facebook fans/twitter followers",
+    "of the Washington Football Team (NFL) from",
+    "2012 to 2020 (in millions)"
+  ],
+  "$schema": "https://vega.github.io/schema/vega-lite/v4.8.1.json"
+}

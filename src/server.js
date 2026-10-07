@@ -3,16 +3,17 @@ import { readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
+const APP_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const MODELS = ['deepseek/deepseek-v4.1-flash', 'nvidia/nemotron-3.5-lightning:free', 'openai/gpt-6.1-sol'];
 const DEFAULT_MODEL = MODELS[0];
 const MAX_BODY = 1024 * 1024;
 const PUBLIC_FILES = new Set([
-  'index.html', 'style.css', 'connect.js', 'identity.js', 'util.js', 'js.js',
-  'visconnect-bundle.js', 'drag.js', 'highlight.js', 'vega.js', 'share.js',
-  'delete.js', 'sidebar-toggle.js', 'election-trimmed.csv', 'gapminder.csv',
-  'seattle-weather-trimmed.csv', 'seattle-weather.csv', 'stock-trimmed.csv', 'stock.csv',
+  'index.html', 'style.css', 'src/connect.js', 'src/identity.js', 'src/util.js', 'src/js.js',
+  'src/visconnect-bundle.js', 'src/drag.js', 'src/highlight.js', 'src/vega.js', 'src/share.js',
+  'src/delete.js', 'src/sidebar-toggle.js', 'data/election-trimmed.csv', 'data/gapminder.csv',
+  'data/seattle-weather-trimmed.csv', 'data/seattle-weather.csv', 'data/stock-trimmed.csv', 'data/stock.csv',
   'data/federal.json', 'data/employ.json',
+  'data/example-1.json', 'data/example-2.json', 'data/example-3.json',
 ]);
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',

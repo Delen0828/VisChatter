@@ -25,7 +25,7 @@ prepare_app() {
     chmod 600 "$KEY_FILE"
     KEY_FILE="$(cd "$(dirname "$KEY_FILE")" && pwd)/$(basename "$KEY_FILE")"
     export API_KEYS_FILE="$KEY_FILE"
-    node --input-type=module - "$KEY_FILE" "$APP_DIR/server.js" <<'JS'
+    node --input-type=module - "$KEY_FILE" "$APP_DIR/src/server.js" <<'JS'
 import { pathToFileURL } from 'node:url';
 const { readConfig } = await import(pathToFileURL(process.argv[3]));
 try {

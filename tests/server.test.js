@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { once } from 'node:events';
-import { createApp, MODELS } from '../server.js';
+import { createApp, MODELS } from '../src/server.js';
 
 async function fixture(t, { apiKey = '', fetchImpl, model = MODELS[0] } = {}) {
   const directory = await mkdtemp(path.join(tmpdir(), 'vischatter-test-'));
@@ -30,14 +30,14 @@ async function fixture(t, { apiKey = '', fetchImpl, model = MODELS[0] } = {}) {
 
 test('serves frontend and datasets while denying secrets, source history and hosting files', async t => {
   const app = await fixture(t);
-  for (const url of ['/', '/identity.js', '/util.js', '/share.js', '/data/federal.json', '/gapminder.csv']) {
+  for (const url of ['/', '/src/identity.js', '/src/util.js', '/src/share.js', '/data/federal.json', '/data/gapminder.csv', '/data/example-1.json', '/data/example-2.json', '/data/example-3.json']) {
     assert.equal((await app.get(url)).status, 200, url);
   }
-  for (const url of ['/env/key', '/env/key.json', '/config/api-keys.json', '/config/api-keys.example.json', '/.git/config', '/server.js', '/start-server.sh', '/.runtime/cloudflared.yml', '/%63onfig/api-keys.json', '/data/../config/api-keys.json']) {
+  for (const url of ['/env/key', '/env/key.json', '/config/api-keys.json', '/config/api-keys.example.json', '/.git/config', '/src/server.js', '/shell/start-server.sh', '/shell/common.sh', '/.runtime/cloudflared.yml', '/%63onfig/api-keys.json', '/data/../config/api-keys.json']) {
     assert.equal((await app.get(url)).status, 404, url);
   }
   assert.equal((await app.get('/%ZZ')).status, 400);
-  const frontend = await (await app.get('/js.js')).text();
+  const frontend = await (await app.get('/src/js.js')).text();
   assert.doesNotMatch(frontend, /openai_yek|decodeAsciiString|sk-proj-/);
 });
 

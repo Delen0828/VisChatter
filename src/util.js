@@ -43,14 +43,26 @@ function deselectVisualizationExamples() {
     visualizationExampleButtons.forEach(button => button.setAttribute('aria-pressed', 'false'));
 }
 visualizationExampleButtons.forEach(button => {
-    button.addEventListener('click', () => {
+    button.addEventListener('click', async () => {
         const wasSelected = button.getAttribute('aria-pressed') === 'true';
         deselectVisualizationExamples();
         if (wasSelected) textInput.value = '';
         else {
-            const examples = JSON.parse(document.getElementById('visualization-example-specs').textContent);
-            textInput.value = JSON.stringify(examples[Number(button.dataset.visualizationExample)], null, 2);
             button.setAttribute('aria-pressed', 'true');
+            try {
+                const response = await fetch(`data/example-${Number(button.dataset.visualizationExample) + 1}.json`);
+                if (!response.ok) throw new Error('Could not load visualization example.');
+                const example = await response.json();
+                if (button.getAttribute('aria-pressed') !== 'true') return;
+                textInput.value = JSON.stringify(example, null, 2);
+            } catch (error) {
+                if (button.getAttribute('aria-pressed') !== 'true') return;
+                button.setAttribute('aria-pressed', 'false');
+                const errorNotice = document.getElementById('add-error');
+                errorNotice.textContent = error.message;
+                errorNotice.hidden = false;
+                return;
+            }
         }
         document.getElementById('add-error').hidden = true;
     });

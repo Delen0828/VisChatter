@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 const context = vm.createContext({ document: { getElementById: () => ({ addEventListener() {} }), querySelectorAll: () => [], body: { addEventListener() {} } } });
-vm.runInContext(await readFile(new URL('../util.js', import.meta.url), 'utf8'), context);
+vm.runInContext(await readFile(new URL('../src/util.js', import.meta.url), 'utf8'), context);
 
 test('parses JSON and fenced model output without damaging quoted or comma-containing values', () => {
   const expected = ['COMPARE', 'Washington, DC', "O'Brien"];

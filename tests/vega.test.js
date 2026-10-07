@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
-const source = await readFile(new URL('../vega.js', import.meta.url), 'utf8');
+const source = await readFile(new URL('../src/vega.js', import.meta.url), 'utf8');
 const base = { title: 'Base', mark: 'bar' };
 
 function setup({ rendered = true } = {}) {

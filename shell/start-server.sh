@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts/common.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 if [[ "${1:-}" == '--help' ]]; then
-    echo 'Usage: ./start-server.sh [start|restart|stop|status]'
+    echo 'Usage: ./shell/start-server.sh [start|restart|stop|status]'
     echo 'Optional overrides: config/hosting.env, or PUBLIC_HOSTNAME, TUNNEL_NAME, SESSION, PORT.'
     exit 0
 fi
@@ -41,7 +41,7 @@ case "$ACTION" in
 esac
 
 if [[ "$ACTION" == start ]] && tmux has-session -t "=$SESSION" 2>/dev/null; then
-    echo "$SESSION already exists. Use ./start-server.sh status or restart."
+    echo "$SESSION already exists. Use ./shell/start-server.sh status or restart."
     exit 0
 fi
 prepare_app
@@ -112,7 +112,7 @@ server.on('error', error => {
 server.listen(Number(process.argv[2]), '127.0.0.1', () => server.close());
 JS
 printf -v APP_CMD 'exec env HOST=127.0.0.1 PORT=%q PUBLIC_HOSTNAME=%q API_KEYS_FILE=%q %q %q >> %q 2>&1' \
-    "$PORT" "$PUBLIC_HOSTNAME" "$API_KEYS_FILE" "$(command -v node)" "$APP_DIR/server.js" "$APP_DIR/.runtime/app.log"
+    "$PORT" "$PUBLIC_HOSTNAME" "$API_KEYS_FILE" "$(command -v node)" "$APP_DIR/src/server.js" "$APP_DIR/.runtime/app.log"
 APP_PANE="$(tmux new-session -d -s "$SESSION" -n hosting -c "$APP_DIR" -P -F '#{pane_id}' "$APP_CMD")"
 STARTUP_COMPLETE=false
 cleanup_startup() {
