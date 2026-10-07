@@ -14,7 +14,7 @@
 	<title>VisChatter</title>
 </head>
 
-<body collaboration="live" custom-events="vl-spec,chart-comment,chart-comment-delete,chart-comments-clear,chart-delete,chart-move,board-clear" ignore-events="SpeechRecognitionEvent,aiAssistToggle">
+<body collaboration="live" custom-events="vl-spec,chart-comment,chart-comment-delete,chart-comments-clear,chart-delete,chart-move,chart-resize,board-clear" ignore-events="SpeechRecognitionEvent,aiAssistToggle">
     <header id="headline">
         <a class="brand" href="./" aria-label="VisChatter home"><h1>VisChatter</h1></a>
         <div class="header-statuses" data-visconnect-local>
@@ -95,9 +95,8 @@
             <div class="dialog-heading"><h2 id="add-title">Add a visualization</h2><button type="button" class="icon-button" data-close-dialog="add-dialog" aria-label="Close add visualization">×</button></div>
             <p class="dialog-description">Paste your Vega-Lite specification below.</p>
             <div class="visualization-examples" role="group" aria-label="Example Vega-Lite specifications">
-                <button type="button" class="example-capsule" data-visualization-example="0" aria-pressed="false" aria-controls="input" aria-label="Use example 1: car registrations bar chart">Example 1 · Bar</button>
-                <button type="button" class="example-capsule" data-visualization-example="1" aria-pressed="false" aria-controls="input" aria-label="Use example 2: Facebook fans line chart">Example 2 · Line</button>
-                <button type="button" class="example-capsule" data-visualization-example="2" aria-pressed="false" aria-controls="input" aria-label="Use example 3: car registrations bar chart">Example 3 · Bar</button>
+                <button type="button" class="example-capsule" data-visualization-example="0" aria-pressed="false" aria-controls="input" title="Number of car registrations in Europe in 2019 , by segment (in 1,000s)" aria-label="Use example 1: Number of car registrations in Europe in 2019 , by segment (in 1,000s)">Number of c...</button>
+                <button type="button" class="example-capsule" data-visualization-example="1" aria-pressed="false" aria-controls="input" title="Small car and minicar sales in Europe, 2013–2020" aria-label="Use example 2: Small car and minicar sales in Europe, 2013–2020">Small car a...</button>
             </div>
             <label class="sr-only" for="input">Vega-Lite JSON specification</label>
             <textarea id="input" placeholder='{"data": {"values": [...]}, "mark": "bar", "encoding": {...}}' spellcheck="false" required></textarea>

@@ -99,7 +99,7 @@ Run `npm test` for whiteboard checks covering comment ordering, annotation previ
 
 `index.html` is the HTML page of VisChatter, using `style.css` for better format and calling other JS files for functionality.
 
-`src/` contains the application JavaScript, including the Node server. `data/` contains CSV datasets, existing JSON datasets, and the three Vega-Lite specifications in `example-1.json`, `example-2.json`, and `example-3.json`. `shell/` contains startup scripts and their shared helpers. Tests remain in `tests/`.
+`src/` contains the application JavaScript, including the Node server. `data/` contains CSV datasets, existing JSON datasets, and two Vega-Lite examples: car registrations by segment in `example-1.json` and small-car and minicar sales from 2013 to 2020 in `example-2.json`. `shell/` contains startup scripts and their shared helpers. Tests remain in `tests/`.
 
 `src/delete.js` handles chart menus, clearing comments, chart deletion, and clearing the whiteboard.
 

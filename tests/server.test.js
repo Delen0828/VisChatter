@@ -30,9 +30,10 @@ async function fixture(t, { apiKey = '', fetchImpl, model = MODELS[0] } = {}) {
 
 test('serves frontend and datasets while denying secrets, source history and hosting files', async t => {
   const app = await fixture(t);
-  for (const url of ['/', '/src/identity.js', '/src/util.js', '/src/share.js', '/data/federal.json', '/data/gapminder.csv', '/data/example-1.json', '/data/example-2.json', '/data/example-3.json']) {
+  for (const url of ['/', '/src/identity.js', '/src/util.js', '/src/share.js', '/data/federal.json', '/data/gapminder.csv', '/data/example-1.json', '/data/example-2.json']) {
     assert.equal((await app.get(url)).status, 200, url);
   }
+  assert.equal((await app.get('/data/example-3.json')).status, 404);
   for (const url of ['/env/key', '/env/key.json', '/config/api-keys.json', '/config/api-keys.example.json', '/.git/config', '/src/server.js', '/shell/start-server.sh', '/shell/common.sh', '/.runtime/cloudflared.yml', '/%63onfig/api-keys.json', '/data/../config/api-keys.json']) {
     assert.equal((await app.get(url)).status, 404, url);
   }

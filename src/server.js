@@ -13,7 +13,7 @@ const PUBLIC_FILES = new Set([
   'src/delete.js', 'src/sidebar-toggle.js', 'data/election-trimmed.csv', 'data/gapminder.csv',
   'data/seattle-weather-trimmed.csv', 'data/seattle-weather.csv', 'data/stock-trimmed.csv', 'data/stock.csv',
   'data/federal.json', 'data/employ.json',
-  'data/example-1.json', 'data/example-2.json', 'data/example-3.json',
+  'data/example-1.json', 'data/example-2.json',
 ]);
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',

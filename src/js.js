@@ -368,9 +368,11 @@ document.addEventListener('keydown', event => {
 });
 window.addEventListener('resize', () => { closeChartMenu(); positionCommentEditor(); });
 document.getElementById('vis-container').addEventListener('scroll', () => { closeChartMenu(); positionCommentEditor(); });
-document.body.addEventListener('chart-move', event => {
-    if (event.detail.visId === commentChartId) requestAnimationFrame(positionCommentEditor);
-});
+for (const type of ['chart-move', 'chart-resize']) {
+    document.body.addEventListener(type, event => {
+        if (event.detail.visId === commentChartId) requestAnimationFrame(positionCommentEditor);
+    });
+}
 
 const commentEditor = document.getElementById('comment-editor');
 const commentInput = document.getElementById('comment-input');

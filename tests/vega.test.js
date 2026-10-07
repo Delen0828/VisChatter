@@ -25,16 +25,20 @@ function setup({ rendered = true } = {}) {
         }
         replaceChildren(...children) { this.children.forEach(child => child.parentElement = null); this.children = []; children.forEach(child => this.appendChild(child)); }
         setAttribute(name, value) { this.attributes[name] = value; }
+        getAttribute(name) { return this.attributes[name]; }
+        hasAttribute(name) { return name in this.attributes; }
         removeAttribute(name) { delete this.attributes[name]; if (name === 'style') this.style = {}; }
         querySelector(selector) {
             for (const child of this.children) {
-                if (child.className === selector.slice(1)) return child;
+                if (child.className === selector.slice(1) || child.tagName === selector.toUpperCase()) return child;
                 const match = child.querySelector(selector);
                 if (match) return match;
             }
             return null;
         }
         getBoundingClientRect() { return { width: 480, height: 320 }; }
+        get clientWidth() { return this.plotWidth || 480; }
+        get clientHeight() { return this.plotHeight || 320; }
     }
     const body = new Element();
     const chart = body.appendChild(new Element());
@@ -45,7 +49,15 @@ function setup({ rendered = true } = {}) {
     svg.textContent = 'Base';
     const requests = [];
     const notices = [];
-    const view = () => ({ finalized: 0, finalize() { this.finalized++; } });
+    const view = () => ({
+        finalized: 0, updates: [], signals: {},
+        finalize() { this.finalized++; },
+        signal(name, value) { this.signals[name] = value; return this; },
+        width(value) { this.nextWidth = value; return this; },
+        height(value) { this.nextHeight = value; return this; },
+        resize() { return this; },
+        async runAsync() { this.updates.push([this.nextWidth, this.nextHeight]); }
+    });
     const originalView = view();
     if (rendered) {
         chart.vegaView = originalView;
@@ -54,6 +66,11 @@ function setup({ rendered = true } = {}) {
     const context = vm.createContext({
         document: { body, getElementById: id => id === chart.id && chart.isConnected ? chart : null, createElement: () => new Element() },
         console, notifyBoard: message => notices.push(message),
+        ResizeObserver: class {
+            constructor(callback) { this.callback = callback; }
+            disconnect() { this.target = null; }
+            observe(target) { this.target = target; }
+        },
         vegaEmbed: (target, spec) => new Promise((resolve, reject) => {
             const nextView = view();
             requests.push({ target, spec, view: nextView, reject, finish() {
@@ -65,7 +82,7 @@ function setup({ rendered = true } = {}) {
         })
     });
     vm.runInContext(source, context);
-    return { body, chart, plot, originalView, requests, notices, render: spec => context.reRenderVegaLite(spec, chart.id) };
+    return { body, chart, plot, originalView, requests, notices, render: spec => context.reRenderVegaLite(spec, chart.id), resize: () => context.resizeChartVisualization(chart) };
 }
 
 test('a preview keeps the visible plot and its view alive until the replacement is ready', async () => {
@@ -187,4 +204,86 @@ test('initial render failures remain visible on the chart and clean up the tempo
     assert.equal(fixture.plot.children[0].className, 'chart-error');
     assert.match(fixture.plot.children[0].textContent, /Invalid specification/);
     assert.equal(fixture.body.children.length, 1);
+});
+
+test('the first resize replaces category step sizing with flexible plot dimensions without changing the source spec', async () => {
+    const fixture = setup();
+    const spec = { ...base, height: { step: 20 }, encoding: { color: { value: '#386cb0' } } };
+    const original = structuredClone(spec);
+    fixture.chart.requestedSpec = fixture.chart.renderedSpec = JSON.stringify(spec);
+    fixture.chart.panelFits = true;
+    fixture.chart.style.width = '514px';
+    fixture.chart.style.height = '390px';
+    const pending = fixture.resize();
+    await Promise.resolve();
+    assert.equal(fixture.requests.length, 1);
+    assert.equal(fixture.requests[0].spec.width, 480);
+    assert.equal(fixture.requests[0].spec.height, 320);
+    assert.equal(fixture.requests[0].spec.autosize.type, 'fit');
+    assert.equal(fixture.requests[0].spec.autosize.contains, 'padding');
+    assert.equal(fixture.requests[0].spec.encoding.color.value, '#386cb0');
+    fixture.requests[0].finish();
+    await pending;
+    assert.deepEqual(spec, original);
+    assert.equal(fixture.chart.renderedSpec, JSON.stringify(original));
+    assert.deepEqual(fixture.requests[0].view.updates.at(-1), [480, 320]);
+    await fixture.resize();
+    assert.equal(fixture.requests.length, 1);
+});
+
+test('live resizing serializes Vega updates and uses the latest size after a pending update', async () => {
+    const fixture = setup();
+    fixture.chart.panelFits = fixture.chart.renderedLayout = true;
+    fixture.chart.style.width = '514px';
+    fixture.chart.style.height = '390px';
+    let finish;
+    fixture.originalView.runAsync = function () {
+        this.updates.push([this.nextWidth, this.nextHeight]);
+        return new Promise(resolve => { finish = resolve; });
+    };
+    const pending = fixture.resize();
+    await Promise.resolve();
+    fixture.plot.plotWidth = 600;
+    fixture.plot.plotHeight = 400;
+    assert.equal(fixture.resize(), pending);
+    fixture.plot.plotWidth = 700;
+    fixture.resize();
+    assert.equal(fixture.originalView.updates.length, 1);
+    finish();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(fixture.originalView.updates, [[480, 320], [700, 400]]);
+    finish();
+    await pending;
+    assert.equal(fixture.chart.resizeQueue, null);
+});
+
+test('annotation previews keep the resized panel dimensions and observe the replacement plot', async () => {
+    const fixture = setup();
+    fixture.chart.style.width = '514px';
+    fixture.chart.style.height = '390px';
+    const spec = { title: 'Preview', mark: 'bar', width: 200, height: 200 };
+    const pending = fixture.render(spec);
+    await Promise.resolve();
+    assert.equal(fixture.requests[0].spec.width, 480);
+    assert.equal(fixture.requests[0].spec.height, 320);
+    fixture.requests[0].finish();
+    await pending;
+    assert.equal(fixture.chart.style.width, '514px');
+    assert.equal(fixture.chart.resizeObserver.target, fixture.chart.querySelector('.chart-visualization'));
+    assert.equal(spec.width, 200);
+});
+
+test('composed charts resize their full SVG viewport without clipping panels or changing their spec', async () => {
+    const fixture = setup();
+    fixture.chart.style.width = '514px';
+    fixture.chart.style.height = '390px';
+    const svg = fixture.plot.children[0];
+    svg.tagName = 'SVG';
+    svg.setAttribute('width', '960');
+    svg.setAttribute('height', '640');
+    await fixture.resize();
+    assert.equal(svg.getAttribute('viewBox'), '0 0 960 640');
+    assert.equal(svg.style.width, '480px');
+    assert.equal(svg.style.height, '320px');
+    assert.equal(fixture.requests.length, 0);
 });

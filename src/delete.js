@@ -38,6 +38,8 @@ function deleteChart(visID, actor = boardActor()) {
     const chart = document.getElementById(visID);
     if (!chart) return;
     cancelChartAnnotations(visID);
+    chart.cancelResize?.();
+    chart.resizeObserver?.disconnect();
     chart.vegaView?.finalize();
     chart.remove();
     for (const dictionary of [apiResponseDict, vlSpecDict, msgPool, specPool, chartComments, chartOwners, originalVisualizations, previewedComments, defaultAnnotations, chartCommentGenerations, removedChartComments]) delete dictionary[visID];

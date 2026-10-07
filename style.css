@@ -50,11 +50,12 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.6px; }
 #transcript-text .interim { color: #9298a4; }
 #transcript-text .transcript-fact { background: #fff3b0; color: inherit; border-radius: 3px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 #board-notice { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); z-index: 60; max-width: calc(100% - 32px); padding: 12px 18px; border: 1px solid var(--border-color); border-radius: 10px; background: white; box-shadow: var(--shadow-popover); }
-.draggable-chart { position: absolute; top: 0; left: 0; width: max-content; min-width: 240px; max-width: none; background: #fff; padding: 12px 16px 16px; border: 1px solid #e3e5eb; border-radius: 14px; box-shadow: 0 3px 12px #28344b08; transition: border-color .15s, box-shadow .15s; }
+.draggable-chart { position: absolute; top: 0; left: 0; display: flex; flex-direction: column; width: max-content; min-width: 240px; min-height: 180px; max-width: none; background: #fff; padding: 12px 16px 16px; border: 1px solid #e3e5eb; border-radius: 14px; box-shadow: 0 3px 12px #28344b08; transition: border-color .15s, box-shadow .15s; }
 .draggable-chart:hover { border-color: var(--accent-border); box-shadow: 0 6px 22px #28344b12; }
 .draggable-chart.selected { border-color: var(--accent-primary); box-shadow: 0 0 0 2px #0047ab15, 0 6px 22px #28344b10; }
 .draggable-chart:has(.comment-popover:not([hidden])) { z-index: 20; }
-.chart-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; height: 30px; cursor: grab; }
+.chart-resizing, .chart-resizing * { cursor: var(--chart-resize-cursor) !important; user-select: none !important; }
+.chart-header { display: flex; flex-shrink: 0; align-items: center; gap: 12px; margin-bottom: 10px; height: 30px; cursor: grab; }
 .chart-header:active { cursor: grabbing; }
 .chart-name { flex: 1; color: #8a8f9b; font-size: 10px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; }
 .chart-controls { display: flex; align-items: center; gap: 7px; }
@@ -68,11 +69,13 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.6px; }
 #current-profile .profile-avatar { width: 32px; height: 32px; }
 .chart-menu-button { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 7px; color: #8a8f9b; background: transparent; font-size: 18px; line-height: 1; }
 .chart-menu-button:hover { background: var(--accent-soft); color: var(--accent-primary); }
-.chart-visualization { min-height: 100px; }
+.chart-visualization { flex: 1; min-width: 0; min-height: 100px; }
+.chart-visualization.vega-embed { display: block; padding: 0; }
+.resized .chart-visualization { overflow: hidden; }
 .chart-visualization .vega-embed { padding: 0; display: block; }
 .chart-visualization svg { width: initial; height: initial; fill: initial; stroke: initial; stroke-width: initial; stroke-linecap: initial; stroke-linejoin: initial; }
 .chart-error { max-width: 380px; padding: 20px 4px; color: var(--accent-danger); overflow-wrap: anywhere; }
-.comment-popover { position: relative; width: min(310px, calc(100vw - 64px)); margin: 0 0 10px auto; border: 1px solid var(--border-color); border-radius: 8px; background: #fff; cursor: auto; overflow: hidden; }
+.comment-popover { position: relative; flex-shrink: 0; width: min(310px, 100%, calc(100vw - 64px)); margin: 0 0 10px auto; border: 1px solid var(--border-color); border-radius: 8px; background: #fff; cursor: auto; overflow: hidden; }
 .comment-popover-heading { display: flex; justify-content: space-between; align-items: center; padding: 5px 9px; border-bottom: 1px solid #eeeff3; }
 .comment-popover-heading h3 { font-size: 12px; margin: 0; font-weight: 600; }
 .comment-clear-all { padding: 2px 0; border: 0; background: transparent; color: var(--accent-primary); font-size: 11px; }

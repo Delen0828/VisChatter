@@ -1,22 +1,22 @@
 {
   "config": {
-    "background": "#000",
+    "background": "#fff",
     "title": {
-      "color": "#fff",
-      "subtitleColor": "#fff"
+      "color": "#000",
+      "subtitleColor": "#000"
     },
     "style": {
       "guide-label": {
-        "fill": "#fff"
+        "fill": "#000"
       },
       "guide-title": {
-        "fill": "#fff"
+        "fill": "#000"
       }
     },
     "axis": {
-      "domainColor": "#fff",
+      "domainColor": "#000",
       "gridColor": "#888",
-      "tickColor": "#fff"
+      "tickColor": "#000"
     },
     "range": {
       "category": [
@@ -32,7 +32,48 @@
     }
   },
   "data": {
-    "url": "https://raw.githubusercontent.com/vis-nlp/Chart-to-text/main/statista_dataset/dataset/data/10030.csv"
+    "values": [
+      {
+        "Car type": "Small",
+        "New registrations in thousands": 2685.29
+      },
+      {
+        "Car type": "Compact",
+        "New registrations in thousands": 2163.77
+      },
+      {
+        "Car type": "Compact SUV & crossover",
+        "New registrations in thousands": 2090.17
+      },
+      {
+        "Car type": "Small SUV & crossover",
+        "New registrations in thousands": 1922.69
+      },
+      {
+        "Car type": "Minicar",
+        "New registrations in thousands": 1101.78
+      },
+      {
+        "Car type": "Compact premium",
+        "New registrations in thousands": 746.61
+      },
+      {
+        "Car type": "Premium compact SUV & crossover",
+        "New registrations in thousands": 614.35
+      },
+      {
+        "Car type": "Midsize premium",
+        "New registrations in thousands": 540.17
+      },
+      {
+        "Car type": "Premium midsize SUV & crossover",
+        "New registrations in thousands": 515.16
+      },
+      {
+        "Car type": "Midsize",
+        "New registrations in thousands": 403.92
+      }
+    ]
   },
   "mark": "bar",
   "encoding": {
@@ -58,5 +99,10 @@
     "Number of car registrations in Europe in",
     "2019 , by segment (in 1,000s)"
   ],
-  "$schema": "https://vega.github.io/schema/vega-lite/v4.8.1.json"
+  "$schema": "https://vega.github.io/schema/vega-lite/v4.8.1.json",
+  "usermeta": {
+    "source": "https://raw.githubusercontent.com/vis-nlp/Chart-to-text/main/statista_dataset/dataset/data/10030.csv",
+    "year": 2019,
+    "sourceNote": "Source values are embedded with the category column renamed from programming language to Car type."
+  }
 }

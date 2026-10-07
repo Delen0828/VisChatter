@@ -39,10 +39,37 @@ async function setUrl(number) {
 const textInput = document.getElementById('input');
 const renderButton = document.getElementById('renderButton');
 const visualizationExampleButtons = [...document.querySelectorAll('[data-visualization-example]')];
+const visualizationExampleRequests = new Map();
+function setVisualizationExampleTitle(button, spec) {
+    const value = typeof spec.title === 'object' && !Array.isArray(spec.title) ? spec.title?.text : spec.title;
+    const title = (Array.isArray(value) ? value.join(' ') : value) || `Example ${Number(button.dataset.visualizationExample) + 1}`;
+    const characters = Array.from(title);
+    button.textContent = characters.length >= 15 ? characters.slice(0, 11).join('') + '...' : title;
+    button.title = title;
+    button.setAttribute('aria-label', `Use example ${Number(button.dataset.visualizationExample) + 1}: ${title}`);
+}
+function loadVisualizationExample(button) {
+    const index = button.dataset.visualizationExample;
+    if (!visualizationExampleRequests.has(index)) {
+        const request = (async () => {
+            const response = await fetch(`data/example-${Number(index) + 1}.json`);
+            if (!response.ok) throw new Error('Could not load visualization example.');
+            const spec = await response.json();
+            setVisualizationExampleTitle(button, spec);
+            return spec;
+        })().catch(error => {
+            visualizationExampleRequests.delete(index);
+            throw error;
+        });
+        visualizationExampleRequests.set(index, request);
+    }
+    return visualizationExampleRequests.get(index);
+}
 function deselectVisualizationExamples() {
     visualizationExampleButtons.forEach(button => button.setAttribute('aria-pressed', 'false'));
 }
 visualizationExampleButtons.forEach(button => {
+    loadVisualizationExample(button).catch(() => {});
     button.addEventListener('click', async () => {
         const wasSelected = button.getAttribute('aria-pressed') === 'true';
         deselectVisualizationExamples();
@@ -50,9 +77,7 @@ visualizationExampleButtons.forEach(button => {
         else {
             button.setAttribute('aria-pressed', 'true');
             try {
-                const response = await fetch(`data/example-${Number(button.dataset.visualizationExample) + 1}.json`);
-                if (!response.ok) throw new Error('Could not load visualization example.');
-                const example = await response.json();
+                const example = await loadVisualizationExample(button);
                 if (button.getAttribute('aria-pressed') !== 'true') return;
                 textInput.value = JSON.stringify(example, null, 2);
             } catch (error) {
