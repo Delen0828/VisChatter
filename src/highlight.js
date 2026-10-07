@@ -232,10 +232,6 @@ function lineThreshold(vega, mainType, subType, value, xList, yList, csvData) {
 	return vega;
 }
 // outPut2 = JSON.stringify(lineThreshold(testVega, 'temporal', 'quantitative', 100, [2019, 2018, 2016, 2015, 2014, 2013, 2012, 2011, 2010, 2009, 2008, 2007, 2006], [102.35, 100.26, 92.98, 85.83, 84.43, 81.54, 78.38, 77.34, 76.47, 74.99, 72.2, 67.11, 62.38]))
-function getAngle(trend) {
-    return { 'TREND^': -45, 'TREND-': 0, TRENDv: 45 }[trend] ?? 0;
-}
-
 function lineTrend(vega, trend, mainField, subField, mainType, subType, xList = [], value1 = -1, value2 = -1, legend = 'None', legendField, csvData) {
     const values = orderedLineValues(legend !== 'None' && legendField
         ? getListSelected(csvData, legend, mainField, legendField, subField)[0] : xList, mainType);
@@ -253,11 +249,12 @@ function lineTrend(vega, trend, mainField, subField, mainType, subType, xList = 
     const midPoint = selected[Math.floor((selected.length - 1) / 2)];
     const filter = lineRangeFilter(mainField, mainType, start, end, values, legend, legendField);
     addLineHighlightLayers(vega, [filter]);
-    // Reuse the original encodings so the arrow shares the line's scales and series color.
+    const label = { 'TREND^': 'Increase ↗', 'TREND-': 'Stable →', TRENDv: 'Decrease ↘' }[trend];
+    // Keep the label and arrow together using the line's scales and series color.
     vega.layer.push({
-        mark: { type: 'text', angle: getAngle(trend), fontSize: 24, dy: -10 },
+        mark: { type: 'text', fontSize: 14, fontWeight: 600, baseline: 'bottom', dy: -10 },
         transform: [{ filter: `${lineDatumExpression(mainField, mainType)} === ${JSON.stringify(lineComparable(midPoint, mainType))}${lineSeriesFilter(legend, legendField)}` }],
-        encoding: { ...JSON.parse(JSON.stringify(vega.layer[1].encoding)), text: { value: '→' } }
+        encoding: { ...JSON.parse(JSON.stringify(vega.layer[1].encoding)), text: { value: label } }
     });
     return vega;
 }
@@ -335,12 +332,21 @@ function barHighlightOne(vega, mainField, value) {
 }
 // outPut1 = JSON.stringify(barHighlightOne(testVega,'programming language','Small'))
 
-function barCompareTwo(vega, mainField, value1, value2) {
+function barCompareTwo(vega, mainField, value1, value2, csvData) {
+	const [headers = [], ...rows] = d3.csvParseRows(csvData);
+	const fieldIndex = headers.indexOf(mainField);
+	const categories = [...new Set(rows.map(row => row[fieldIndex]).filter(value => typeof value === 'string'))];
+	const selected = [value1, value2].map(value => {
+		if (categories.includes(value)) return value;
+		const matches = categories.filter(category => category.trim().toLowerCase() === value.trim().toLowerCase());
+		if (matches.length !== 1) throw new Error(`Comment saved. The selected category ${JSON.stringify(value)} could not be found in the chart data.`);
+		return matches[0];
+	});
 	vega["layer"] = [{ 'mark': vega['mark'], 'encoding': vega['encoding'] }]
 
 	vega["layer"][0]["encoding"]["opacity"] = { "value": 0.4 }
 	let new_layer = JSON.parse(JSON.stringify(vega["layer"][0]));
-	new_layer["transform"] = [{ "filter": `datum['${mainField}'] == '${value1}' || datum['${mainField}'] == '${value2}'` }]
+	new_layer["transform"] = [{ "filter": `indexof(${JSON.stringify(selected)}, toString(datum[${JSON.stringify(mainField)}])) >= 0` }]
 	new_layer["encoding"]["opacity"] = { "value": 1 }
 	vega["layer"].push(new_layer)
 	delete vega['mark']

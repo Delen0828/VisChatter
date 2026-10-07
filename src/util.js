@@ -140,7 +140,7 @@ function highLightHelper(visID, task, vega, mainField, subField, mainType, subTy
 			newVega = barHighlightOne(vega, mainField, newList[0]);
 		}
 		if (task == 'COMPARE') {
-			newVega = barCompareTwo(vega, mainField, newList[0], newList[1]);
+			newVega = barCompareTwo(vega, mainField, newList[0], newList[1], csvData);
 		}
 		if (task == 'FILTER') {
 			newVega = barThreshold(vega, subField, taskList[1]);
@@ -200,13 +200,13 @@ const promptMsg = {
 		Your duty is to label the <caption> based on the following <task> and extract key-values accordingly from <data>.
 
 		The <caption> can be classified as the following 7 <task>
-		<task> RETRIEVE </task>: Extract 1+ key-values (x-axis only). e.g. 'The highest value is 100' = RETRIEVE
-		<task> COMPARE </task>: Compare 2+ key-values (x-axis only). e.g. 'A is highest, B is lowest' = COMPARE
-		<task> FILTER </task>: Extract 1 key-value (y-axis only). e.g. 'The values are higher than 100' = FILTER
+		<task> RETRIEVE </task>: Extract 1+ identifiers (the category axis for bars; the x-axis for other charts). e.g. 'The highest value is 100' = RETRIEVE
+		<task> COMPARE </task>: Compare 2+ identifiers (the category axis for bars; the x-axis for other charts). e.g. 'A is highest, B is lowest' = COMPARE
+		<task> FILTER </task>: Extract 1 key-value (the measurement axis for bars; the y-axis for other charts). e.g. 'The values are higher than 100' = FILTER
 		<task> TREND^ </task>: Increasing trend, 2 key-values (x-axis only). e.g. 'The values are increasing from 2010 to 2020' = TREND^
 		<task> TREND- </task>: Stable trend, 2 key-values (x-axis only). e.g. 'The values are stable from 2010 to 2020' = TREND-
 		<task> TRENDv </task>: Decreasing trend, 2 key-values (x-axis only). e.g. 'The values are decreasing from 2010 to 2020' = TRENDv
-		<task> RANGE </task>: Extract 2 key-values (y-axis only). e.g. 'The values are between 100 and 200' = RANGE
+		<task> RANGE </task>: Extract 2 key-values (the measurement axis for bars; the y-axis for other charts). e.g. 'The values are between 100 and 200' = RANGE
 
 		Follow the following 4 steps when you label and extract:
 		Step 1: Identify the most important data fact from the <caption> 
@@ -215,7 +215,7 @@ const promptMsg = {
 		Step 4: Retrieve key values from <data> mentioned in <caption> based on the following 3 rules
 
 		Follow the 3 rules in Step 4:
-		Rule 1: Key values of <task> RETRIEVE </task>, <task>COMPARE</task>, <task>TREND-</task>,<task>TREND^</task>,<task>TRENDv</task> are x-axis values; Key values of <task> FILTER </task> and <task> RANGE </task> use y-axis values.
+		Rule 1: For bar charts, RETRIEVE and COMPARE return category-axis values, while FILTER and RANGE return measurement-axis values. For other charts, RETRIEVE, COMPARE and TREND return x-axis values, while FILTER and RANGE use y-axis values.
 		Rule 2: <task>RETRIEVE</task> lists values; <task>COMPARE</task> highlights differences (e.g., 'A is highest, B is lowest' = COMPARE, 'A and B are the highest' = RETRIEVE)
 		Rule 3: Extract the first and last year from the x-axis column of <data> if there is no certain years specified in <task> Trend- </task>, <task> Trend^ <task>, <task> Trendv <task> (e.g., 'overall increase')
 		Rule 4: Do not change the value extracted from <data> (e.g. <caption> says 'The highest value is 100' but <data> says '100*, 99* ...', you should extract 100* as the key value)
@@ -230,6 +230,12 @@ function getPrompt(chartType, isMulti, target, spec) {
 	let newPromptMsg = JSON.parse(JSON.stringify(promptMsg));
 	if (spec) {
 		newPromptMsg.messages[1].content += `\nChart encodings: ${JSON.stringify(spec.encoding)}\n`;
+		const markType = typeof spec.mark === 'string' ? spec.mark : spec.mark?.type;
+		if (markType === 'bar') {
+			const [categoryField, , measurementField] = getMainSubFieldType(spec);
+			const categoryAxis = spec.encoding.x.field === categoryField ? 'x' : 'y';
+			newPromptMsg.messages[1].content += `For this bar chart, RETRIEVE and COMPARE must return exact category values from ${JSON.stringify(categoryField)} (the ${categoryAxis}-axis), never measurement values from ${JSON.stringify(measurementField)}. FILTER and RANGE return numeric thresholds from ${JSON.stringify(measurementField)}.\n`;
+		}
 	}
 	if (isMulti) {
 		newPromptMsg.messages[1].content += `\nFor a caption about a named series, append its exact value from the series column after the axis values.

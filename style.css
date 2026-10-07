@@ -75,7 +75,7 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.6px; }
 .chart-visualization .vega-embed { padding: 0; display: block; }
 .chart-visualization svg { width: initial; height: initial; fill: initial; stroke: initial; stroke-width: initial; stroke-linecap: initial; stroke-linejoin: initial; }
 .chart-error { max-width: 380px; padding: 20px 4px; color: var(--accent-danger); overflow-wrap: anywhere; }
-.comment-popover { position: relative; flex-shrink: 0; width: min(310px, 100%, calc(100vw - 64px)); margin: 0 0 10px auto; border: 1px solid var(--border-color); border-radius: 8px; background: #fff; cursor: auto; overflow: hidden; }
+.comment-popover { position: absolute; top: 12px; left: calc(100% + 12px); z-index: 2; width: min(310px, calc(100vw - 16px)); border: 1px solid var(--border-color); border-radius: 8px; background: #fff; box-shadow: var(--shadow-popover); cursor: auto; overflow: hidden; }
 .comment-popover-heading { display: flex; justify-content: space-between; align-items: center; padding: 5px 9px; border-bottom: 1px solid #eeeff3; }
 .comment-popover-heading h3 { font-size: 12px; margin: 0; font-weight: 600; }
 .comment-clear-all { padding: 2px 0; border: 0; background: transparent; color: var(--accent-primary); font-size: 11px; }

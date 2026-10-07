@@ -739,6 +739,55 @@ test('a standard bar spec without an explicit color can still receive an annotat
     assert.equal(vm.runInContext("JSON.parse(vlSpecDict['vis-test']).encoding.color", context), undefined);
 });
 
+test('example 1 comparisons select Small and Minicar across capitalization and whitespace variations', async () => {
+    for (const categories of [['Small', 'Minicar'], [' small ', 'MINICAR']]) {
+        const { context, addChart } = setup();
+        addChart();
+        const spec = JSON.parse(await readFile(new URL('../data/example-1.json', import.meta.url), 'utf8'));
+        context.spec = spec;
+        let prompt;
+        context.fetch = async (_url, options) => {
+            prompt = JSON.parse(options.body);
+            return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(['COMPARE', ...categories]) } }] }) };
+        };
+        await vm.runInContext("highLight('Compare small and minicar', 'vis-test', spec)", context);
+        const comment = vm.runInContext("chartComments['vis-test'][0]", context);
+        assert.equal(comment.status, 'ready', comment.error);
+        const highlighted = comment.annotatedSpec.layer[1];
+        assert.deepEqual(matchesLineFilter(highlighted, spec.data.values).map(row => row['Car type']), ['Small', 'Minicar']);
+        assert.deepEqual(JSON.parse(JSON.stringify(highlighted.encoding.color)), spec.encoding.color);
+        assert.match(prompt.messages[1].content, /category values from "Car type" \(the y-axis\)/);
+        assert.equal(spec.encoding.opacity, undefined);
+    }
+});
+
+test('bar comparisons reject missing categories and measurement values before creating an empty layer', async () => {
+    for (const categories of [['2685.29', '1101.78'], ['Small', 'Unknown']]) {
+        const { context, addChart, renders } = setup();
+        addChart();
+        context.spec = JSON.parse(await readFile(new URL('../data/example-1.json', import.meta.url), 'utf8'));
+        context.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(['COMPARE', ...categories]) } }] }) });
+        await vm.runInContext("highLight('Compare small and minicar', 'vis-test', spec)", context);
+        const comment = vm.runInContext("chartComments['vis-test'][0]", context);
+        assert.equal(comment.status, 'error');
+        assert.match(comment.error, /category.*could not be found/i);
+        assert.equal(comment.annotatedSpec, undefined);
+        assert.ok(renders.every(render => !render.spec.layer));
+    }
+});
+
+test('bar comparisons safely select categories and field names containing apostrophes', async () => {
+    const { context, addChart } = setup();
+    addChart();
+    const rows = [{ "Owner's category": "O'Brien", value: 20 }, { "Owner's category": 'Other', value: 40 }];
+    context.spec = { data: { values: rows }, mark: 'bar', encoding: { x: { field: "Owner's category", type: 'nominal' }, y: { field: 'value', type: 'quantitative' } } };
+    context.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(['COMPARE', "O'Brien", 'Other']) } }] }) });
+    await vm.runInContext("highLight('Compare owners', 'vis-test', spec)", context);
+    const comment = vm.runInContext("chartComments['vis-test'][0]", context);
+    assert.equal(comment.status, 'ready', comment.error);
+    assert.deepEqual(matchesLineFilter(comment.annotatedSpec.layer[1], rows).map(row => row["Owner's category"]), ["O'Brien", 'Other']);
+});
+
 test('a Small-car trend annotates only 2013–2018 using the encoded fields and preserves chart colors', async () => {
     const { context, addChart } = setup();
     addChart();
@@ -757,10 +806,12 @@ test('a Small-car trend annotates only 2013–2018 using the encoded fields and 
     const matches = matchesLineFilter(highlighted, spec.data.values);
     assert.deepEqual(matches.map(row => [row.Year, row['Car type']]), [2013, 2014, 2015, 2016, 2017, 2018].map(year => [year, 'Small']));
     assert.deepEqual(JSON.parse(JSON.stringify(highlighted.encoding.color)), spec.encoding.color);
-    const arrow = comment.annotatedSpec.layer[2];
-    const anchors = matchesLineFilter(arrow, spec.data.values);
+    const label = comment.annotatedSpec.layer[2];
+    const anchors = matchesLineFilter(label, spec.data.values);
     assert.deepEqual(anchors.map(row => [row.Year, row['Car type']]), [[2015, 'Small']]);
-    assert.equal(arrow.mark.angle, -45);
+    assert.equal(label.encoding.text.value, 'Increase ↗');
+    assert.equal(label.mark.angle ?? 0, 0);
+    assert.deepEqual(JSON.parse(JSON.stringify(label.encoding.color)), spec.encoding.color);
     assert.equal(spec.mark.type, 'line');
 });
 
@@ -784,7 +835,8 @@ test('single-series trends honor bounds despite metadata columns, reversed endpo
     assert.equal(comment.status, 'ready', comment.error);
     assert.deepEqual(matchesLineFilter(comment.annotatedSpec.layer[1], rows).map(row => row['Fiscal year']).sort((a, b) => a - b), [9, 10, 11]);
     assert.deepEqual(matchesLineFilter(comment.annotatedSpec.layer[2], rows).map(row => row['Fiscal year']), [10]);
-    assert.equal(comment.annotatedSpec.layer[2].mark.angle, 45);
+    assert.equal(comment.annotatedSpec.layer[2].encoding.text.value, 'Decrease ↘');
+    assert.equal(comment.annotatedSpec.layer[2].mark.angle ?? 0, 0);
 });
 
 test('temporal trends work with arbitrary field names and keep the original date scales', async () => {
@@ -800,7 +852,8 @@ test('temporal trends work with arbitrary field names and keep the original date
     assert.deepEqual(matchesLineFilter(comment.annotatedSpec.layer[1], rows).map(row => row['Reported on']), ['2024-02-01', '2024-03-01', '2024-04-01']);
     assert.deepEqual(matchesLineFilter(comment.annotatedSpec.layer[2], rows).map(row => row['Reported on']), ['2024-03-01']);
     assert.deepEqual(JSON.parse(JSON.stringify(comment.annotatedSpec.layer[2].encoding.x)), x);
-    assert.equal(comment.annotatedSpec.layer[2].mark.angle, 0);
+    assert.equal(comment.annotatedSpec.layer[2].encoding.text.value, 'Stable →');
+    assert.equal(comment.annotatedSpec.layer[2].mark.angle ?? 0, 0);
 });
 
 test('ordinal trends match numeric categories in the inline dataset', async () => {
