@@ -1,6 +1,6 @@
 # Introduction
 
-VisChatter is a prototype for online collaboration on data visualization, hosted at [vischatter.songwen.dev](https://vischatter.songwen.dev). Open it in one browser tab, copy the sharing link, and open that link in another tab to test collaboration. Collaboration uses the existing public PeerJS signaling service and WebRTC; networks that block peer connections may need a separate TURN service.
+VisChatter is a prototype for online collaboration on data visualization, hosted at [vischatter.songwen.dev](https://vischatter.songwen.dev). Open it in one browser tab, copy the sharing link, and open that link in another tab or on another device to test collaboration. Collaboration uses a same-origin HTTPS relay with server-sent events and ordered HTTP messages. Collaborators connect through the hosted app, including across different networks, without a PeerJS signaling service or TURN configuration.
 
 # Hosting and development
 
@@ -81,6 +81,10 @@ Opening the interface or a shared link asks for a username, prefilled with **pre
 
 Chart additions, movements, comments, and deletions use the existing collaboration connection. Comment drafts, annotation previews, default version choices, and live transcripts stay local to each browser.
 
+Every collaborator's cursor appears with their username and profile color. Positions follow whiteboard coordinates across window sizes and scrolling. Cursors disappear when participants leave the canvas, switch away, or disconnect. Cursor updates are transient and do not enter the chart history.
+
+The relay retries interrupted connections and replays missed messages. The presenter sends chart history to newly joined and reconnected participants; keep the presenter tab open for username approval and complete chart catch-up. Session credentials are kept for five minutes after a disconnect. Sessions are held in server memory, so a server restart requires reconnecting; if the presenter refreshes, copy a new sharing link. After deploying collaboration changes, run `./scripts/start-server.sh restart` on the hosting machine and refresh all participants' tabs.
+
 ## Local development
 
 ```bash
@@ -111,7 +115,7 @@ Run `npm test` for whiteboard checks covering comment ordering, annotation previ
 
 `src/vega.js` contains functions used to render Vega-lite code.
 
-`src/visconnect-bundle.js` is forked from [VisConnect](https://visconnect.us/). It is a peer-to-peer protocol for synchronizing event among browsers.
+`src/visconnect-bundle.js` is forked from [VisConnect](https://visconnect.us/) and retains its chart event ledger and replay logic. `src/collaboration.js` supplies its HTTP communication adapter, `src/collaboration-server.js` relays session messages, and `src/cursors.js` renders transient collaborator presence using confirmed profile colors.
 
 ### Analyze
 

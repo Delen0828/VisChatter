@@ -2,6 +2,7 @@ import http from 'node:http';
 import { readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createCollaborationRelay } from './collaboration-server.js';
 
 const APP_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const MODELS = ['deepseek/deepseek-v4.1-flash', 'nvidia/nemotron-3.5-lightning:free', 'openai/gpt-6.1-sol'];
@@ -9,6 +10,7 @@ const DEFAULT_MODEL = MODELS[0];
 const MAX_BODY = 1024 * 1024;
 const PUBLIC_FILES = new Set([
   'index.html', 'style.css', 'src/connect.js', 'src/identity.js', 'src/util.js', 'src/js.js',
+  'src/collaboration.js', 'src/cursors.js',
   'src/visconnect-bundle.js', 'src/drag.js', 'src/highlight.js', 'src/vega.js', 'src/share.js',
   'src/delete.js', 'src/sidebar-toggle.js', 'data/election-trimmed.csv', 'data/gapminder.csv',
   'data/seattle-weather-trimmed.csv', 'data/seattle-weather.csv', 'data/stock-trimmed.csv', 'data/stock.csv',
@@ -72,11 +74,12 @@ export function createApp({
   fetchImpl = fetch,
 } = {}) {
   const requests = new Map();
-  return http.createServer(async (req, res) => {
+  const server = http.createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     try {
       const url = new URL(req.url, 'http://localhost');
+      if (await collaboration(req, res, url)) return;
       if (url.pathname === '/healthz' && req.method === 'GET') {
         const config = await readConfig(configPath);
         return json(res, 200, { status: 'ok', apiConfigured: Boolean(config.apiKey) });
@@ -192,6 +195,8 @@ export function createApp({
       if (!error.status) console.error('Request failed:', error.code || error.name);
     }
   });
+  const collaboration = createCollaborationRelay(server, publicHostname);
+  return server;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

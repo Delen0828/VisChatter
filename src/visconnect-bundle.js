@@ -11140,7 +11140,6 @@ var VisConnectUi = /** @class */ (function () {
         this.element = element;
         this.cursorResetTimeout = 0;
         this.addTemplate();
-        this.initiateCursors();
         var protocol = this.visconnect.protocol;
         protocol.communication.onConnectionCallback = this.updateConnections.bind(this);
         protocol.onLoading = this.showLoadingScreen.bind(this);
@@ -11203,12 +11202,15 @@ var VisConnectUi = /** @class */ (function () {
     VisConnectUi.prototype.updateConnections = function () {
         var communication = this.visconnect.protocol.communication;
         var collaborators = Math.max(0, communication.getNumberOfConnections() - 1);
-        if (this.connectionFailed) this.setConnectionStatus('disconnected', 'Disconnected');
+        if (communication.statusText) this.setConnectionStatus(communication.opened ? 'connecting' : 'disconnected', communication.statusText);
+        else if (communication.opened && communication.id !== communication.leaderId && communication.peers && !communication.peers.includes(communication.leaderId)) this.setConnectionStatus('connecting', 'Waiting for presenter…');
+        else if (this.connectionFailed) this.setConnectionStatus('disconnected', 'Disconnected');
         else if (communication.opened) this.setConnectionStatus('connected', collaborators > 0 ? String(collaborators) + ' connected' : 'Connected');
         else this.setConnectionStatus('connecting', 'Connecting…');
         window.dispatchEvent(new CustomEvent('visconnect-connections-changed'));
     };
-    VisConnectUi.prototype.invite = function () {
+    VisConnectUi.prototype.invite = async function (event) {
+        if (event) event.preventDefault();
         var communication = this.visconnect.protocol.communication;
         var leaderId = communication.leaderId;
         var logo = document.getElementById('visconnect-logo');
@@ -11222,11 +11224,11 @@ var VisConnectUi = /** @class */ (function () {
             }, 1000);
             return;
         }
-        var url = location.href.replace(/visconnectownid=[a-z0-9]+/gi, '');
-        if (leaderId === communication.id) {
-            url += '?visconnectid=' + leaderId;
-        }
-        copyToClipboard(url);
+        var url = new URL(location.href);
+        url.searchParams.delete('visconnectownid');
+        url.searchParams.set('visconnectid', leaderId);
+        try { await copyToClipboard(url.href); }
+        catch (error) { this.setConnectionStatus('disconnected', 'Could not copy sharing link.'); return; }
         var inviteLinkCopied = document.getElementById('visconnect-link-copied');
         logo.style.display = 'none';
         inviteLinkCopied.style.display = 'inline';
@@ -11252,28 +11254,39 @@ var VisConnectUi = /** @class */ (function () {
         container.setAttribute('data-visconnect-local', '');
         container.innerHTML = '<a id="visconnect-invite"><svg id="visconnect-logo" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Share</span></a><span id="visconnect-link-copied">Link copied</span><span id="visconnect-not-ready">Not connected yet</span>';
         document.body.appendChild(container);
-        document.getElementById('visconnect-invite').onclick = this.invite.bind(this);
+        var invite = document.getElementById('visconnect-invite');
+        var url = new URL(location.href);
+        url.searchParams.delete('visconnectownid');
+        url.searchParams.set('visconnectid', this.visconnect.protocol.communication.leaderId);
+        invite.href = url.href;
+        invite.onclick = this.invite.bind(this);
     };
     return VisConnectUi;
 }());
 // From https://hackernoon.com/copying-text-to-clipboard-with-javascript-df4d4988697f
-var copyToClipboard = function (str) {
+var copyToClipboard = async function (str) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(str);
+        return;
+    }
     var el = document.createElement('textarea');
     el.value = str;
     //console.log(str);
     el.setAttribute('readonly', '');
+    el.setAttribute('data-visconnect-local', '');
     el.style.position = 'absolute';
     el.style.left = '-9999px';
     document.body.appendChild(el);
     var selection = document.getSelection();
     var selected = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : false;
     el.select();
-    document.execCommand('copy');
+    var copied = document.execCommand('copy');
     document.body.removeChild(el);
     if (selected && selection) {
         selection.removeAllRanges();
         selection.addRange(selected);
     }
+    if (!copied) throw new Error('Clipboard access is unavailable.');
 };
 
 var VcListener = /** @class */ (function () {
@@ -12711,7 +12724,7 @@ var VcProtocol = /** @class */ (function () {
         this.heldEvents = new Map();
         this.heldRemoteEvents = new Map();
         this.collaboratorId = '';
-        var Communication = MockCommunication ? MockCommunication : VcCommunication;
+        var Communication = MockCommunication || window.VisChatterCommunication || VcCommunication;
         this.communication = new Communication({
             leaderId: leaderId,
             ownId: ownId,
@@ -13053,11 +13066,10 @@ var Visconnect = /** @class */ (function () {
 
 var visconnect;
 var visconnectUi;
-var parts = window.location.href.match(/\?visconnectid=([a-z0-9\-]+)/);
-var ownParts = window.location.href.match(/\?visconnectownid=([a-z0-9\-]+)/);
-var randomId = __spreadArrays(Array(10)).map(function (i) { return (~~(Math.random() * 36)).toString(36); }).join('');
-var ownId = ownParts ? ownParts[1] : randomId;
-var leaderId = parts ? parts[1] : ownId;
+var sessionParams = new URL(location.href).searchParams;
+var ownId = crypto.randomUUID();
+var sharedId = sessionParams.get('visconnectid');
+var leaderId = /^[a-zA-Z0-9-]{8,80}$/.test(sharedId || '') ? sharedId : ownId;
 window.vc = {
     drag: VisConnectUtil.drag,
     brush: VisConnectUtil.brush,
@@ -13101,6 +13113,8 @@ delayAddEventListener().then(function () {
     visconnectUi = new VisConnectUi(visconnect, el);
     visconnect.onEventCancelled = visconnectUi.eventCancelled.bind(visconnectUi);
     window.vc.sendProfileMessage = visconnect.protocol.communication.sendProfileMessage.bind(visconnect.protocol.communication);
+    window.vc.sendCursorMessage = visconnect.protocol.communication.sendCursorMessage.bind(visconnect.protocol.communication);
+    window.vc.connectedIds = function () { return visconnect.protocol.communication.opened ? visconnect.protocol.communication.peers : []; };
     window.dispatchEvent(new CustomEvent('visconnect-ready'));
 });
 //# sourceMappingURL=visconnect-bundle.js.map

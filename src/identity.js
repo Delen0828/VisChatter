@@ -74,6 +74,7 @@ function createProfileAvatar(profile) {
         document.getElementById('current-profile').replaceChildren(createProfileAvatar(current));
         document.getElementById('current-profile').hidden = false;
         dialog.close();
+        window.dispatchEvent(new CustomEvent('vischatter-profiles-changed'));
     }
     function roster() { return [...participants.values()]; }
     function send(message, recipient) { return window.vc.sendProfileMessage?.(message, recipient) || false; }
@@ -86,6 +87,7 @@ function createProfileAvatar(profile) {
         if (!message) {
             participants.set(actor, { id: actor, username });
             rosterRevision++;
+            window.dispatchEvent(new CustomEvent('vischatter-profiles-changed'));
         }
         const result = { action: 'result', requestId: request.requestId, participantId: actor, error: message, profile: message ? null : participants.get(actor) };
         decisions.set(decisionKey, result);
@@ -116,6 +118,7 @@ function createProfileAvatar(profile) {
                 if (typeof profile.id === 'string' && !usernameError(normalizeUsername(profile.username))) participants.set(profile.id, { id: profile.id, username: normalizeUsername(profile.username) });
             }
             rosterRevision = message.revision;
+            window.dispatchEvent(new CustomEvent('vischatter-profiles-changed'));
         }
         if (message.action !== 'result' || message.participantId !== ownId || message.requestId !== pending?.requestId) return;
         if (message.error) {
@@ -127,6 +130,7 @@ function createProfileAvatar(profile) {
     }
     window.commentIdentity = {
         get current() { return current; },
+        profileFor(id) { return participants.get(id) || null; },
         require() {
             if (current) return true;
             if (!dialog.open) dialog.showModal();
