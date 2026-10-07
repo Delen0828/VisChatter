@@ -40,6 +40,11 @@ test('serves frontend and datasets while denying secrets, source history and hos
   assert.equal((await app.get('/%ZZ')).status, 400);
   const frontend = await (await app.get('/src/js.js')).text();
   assert.doesNotMatch(frontend, /openai_yek|decodeAsciiString|sk-proj-/);
+  const page = await app.get('/');
+  assert.equal(page.headers.get('cache-control'), 'no-store');
+  const html = await page.text();
+  assert.match(html, /src="src\/collaboration\.js\?v=[a-z0-9-]+"/);
+  assert.match(html, /src="src\/visconnect-bundle\.js\?v=[a-z0-9-]+"/);
 });
 
 test('runs without a key and reports unavailable AI without calling OpenRouter', async t => {

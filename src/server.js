@@ -2,6 +2,7 @@ import http from 'node:http';
 import { readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
 import { createCollaborationRelay } from './collaboration-server.js';
 
 const APP_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -74,6 +75,7 @@ export function createApp({
   fetchImpl = fetch,
 } = {}) {
   const requests = new Map();
+  const assetVersion = randomUUID();
   const server = http.createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -181,11 +183,13 @@ export function createApp({
       if (await realpath(location) !== location || !(await stat(location)).isFile()) {
         return fail(res, 404, 'Not found.');
       }
-      const content = await readFile(location);
+      let content = await readFile(location);
+      if (filename === 'index.html') content = Buffer.from(content.toString('utf8').replace(
+        /((?:src|href)="(?:src\/[^"?]+\.js|style\.css))"/g, `$1?v=${assetVersion}"`));
       res.writeHead(200, {
         'Content-Type': MIME[path.extname(filename)] || 'application/octet-stream',
         'Content-Length': content.length,
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-store',
       });
       res.end(req.method === 'HEAD' ? undefined : content);
     } catch (error) {
@@ -211,6 +215,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   server.listen(port, host, () => console.log(`VisChatter listening on http://${host}:${port}`));
   for (const signal of ['SIGINT', 'SIGTERM']) {
     process.on(signal, () => {
+      server.emit('collaboration-shutdown');
       server.close(() => process.exit(0));
       setTimeout(() => process.exit(0), 5000).unref();
     });

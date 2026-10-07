@@ -41,6 +41,7 @@ function createProfileAvatar(profile) {
     const ownId = window.vc.ownId;
     const leaderId = window.vc.leaderId;
     const isPresenter = ownId === leaderId;
+    const serverIdentity = window.vc.identityAuthority === 'server';
     const participants = new Map();
     const decisions = new Map();
     let current = null;
@@ -95,12 +96,28 @@ function createProfileAvatar(profile) {
     }
     function sendPending() {
         if (!pending) return;
+        if (serverIdentity) {
+            if (pending.inFlight) return;
+            if (!window.vc.claimUsername) { retryTimer = setTimeout(sendPending, 150); return; }
+            const request = pending;
+            request.inFlight = true;
+            window.vc.claimUsername({ requestId: request.requestId, username: request.username }).then(result => {
+                if (pending === request) receive({ ...result, sender: leaderId, serverConfirmed: true });
+            }).catch(error => {
+                if (pending !== request) return;
+                stopWaiting();
+                showError(error.name === 'AbortError' ? 'Could not reach the collaboration server. Try joining again.' : error.message);
+                input.focus();
+            });
+            return;
+        }
         send({ action: 'claim', ...pending }, leaderId);
         clearTimeout(retryTimer);
         retryTimer = setTimeout(sendPending, 1500);
     }
     function receive(message) {
-        if (isPresenter) {
+        if (serverIdentity && !message.serverConfirmed) return;
+        if (isPresenter && !serverIdentity) {
             if (message.action === 'roster-request') {
                 send({ action: 'roster', participants: roster(), revision: rosterRevision }, message.sender);
             } else if (message.action === 'claim' && typeof message.requestId === 'string' && message.sender) {
@@ -110,7 +127,7 @@ function createProfileAvatar(profile) {
             }
             return;
         }
-        // Only the session's presenter can assign names or publish the roster.
+        // Server rosters use the session owner ID; legacy rosters come from that owner.
         if (message.sender !== leaderId || !['result', 'roster'].includes(message.action)) return;
         if (Array.isArray(message.participants) && message.revision >= rosterRevision) {
             participants.clear();
@@ -145,7 +162,8 @@ function createProfileAvatar(profile) {
     };
     window.addEventListener('vischatter-profile-message', event => receive(event.detail));
     const connectionChanged = () => {
-        if (isPresenter) send({ action: 'roster', participants: roster(), revision: rosterRevision });
+        if (serverIdentity) { if (pending) sendPending(); }
+        else if (isPresenter) send({ action: 'roster', participants: roster(), revision: rosterRevision });
         else {
             send({ action: 'roster-request' }, leaderId);
             if (pending) sendPending();
@@ -163,7 +181,7 @@ function createProfileAvatar(profile) {
         if (validation) { showError(validation); input.focus(); return; }
         showError('');
         const request = { requestId: crypto.randomUUID(), username };
-        if (isPresenter) {
+        if (isPresenter && !serverIdentity) {
             const result = decide(request, ownId);
             if (result.error) { showError(result.error); input.focus(); input.select(); return; }
             complete(result.profile);
@@ -175,7 +193,7 @@ function createProfileAvatar(profile) {
             submit.textContent = 'Joining…';
             timeoutTimer = setTimeout(() => {
                 stopWaiting();
-                showError('Could not confirm your username with the presenter. Try joining again.');
+                showError(serverIdentity ? 'Could not reach the collaboration server. Try joining again.' : 'Could not confirm your username with the presenter. Try joining again.');
                 input.focus();
             }, 15000);
             sendPending();

@@ -1,10 +1,10 @@
 # Introduction
 
-VisChatter is a prototype for online collaboration on data visualization, hosted at [vischatter.songwen.dev](https://vischatter.songwen.dev). Open it in one browser tab, copy the sharing link, and open that link in another tab or on another device to test collaboration. Collaboration uses a same-origin HTTPS relay with server-sent events and ordered HTTP messages. Collaborators connect through the hosted app, including across different networks, without a PeerJS signaling service or TURN configuration.
+VisChatter is a prototype for online collaboration on data visualization, hosted at [vischatter.songwen.dev](https://vischatter.songwen.dev). Open it in one browser tab, copy the sharing link, and open that link in another tab or on another device to test collaboration. Collaboration uses a same-origin WebSocket relay, with server-sent events and ordered HTTP messages as a fallback when WebSocket upgrades are blocked. Collaborators connect through the hosted app, including across different networks, without a PeerJS signaling service or TURN configuration.
 
 # Hosting and development
 
-The Node.js server serves the interface and datasets and forwards AI requests to OpenRouter. It has no npm dependencies. Use Node.js 20 or newer and Bash. Server hosting also needs `tmux`, `cloudflared`, and `curl`.
+The Node.js server serves the interface and datasets and forwards AI requests to OpenRouter. Use Node.js 20 or newer, npm, and Bash. The startup scripts install the locked `ws` dependency automatically; run `npm ci` before starting Node directly or running tests. Server hosting also needs `tmux`, `cloudflared`, and `curl`.
 
 ## Private API key file
 
@@ -70,7 +70,7 @@ Detach with Ctrl+B, then D. The processes keep running after SSH disconnects. A 
 
 The header keeps the model selector, sharing link, and connection status. An indeterminate indicator appears while model responses are pending. Charts live on a dotted whiteboard and can be dragged to arrange them.
 
-Opening the interface or a shared link asks for a username, prefilled with **presenter** for the session owner and **audience** for a shared-link visitor. The presenter checks names before visitors join; names are unique within the session, ignoring case and surrounding spaces. Claimed names stay reserved for the session so comment history remains unambiguous. Profile icons show the username's first letter on a solid color from a fixed A–Z palette.
+Opening the interface or a shared link asks for a username, prefilled with **presenter** for the session owner and **audience** for a shared-link visitor. The server confirms names atomically, including when the presenter is disconnected or their browser is suspended; names are unique within the session, ignoring case and surrounding spaces. Claimed names stay reserved for the session so comment history remains unambiguous. Profile icons show the username's first letter on a solid color from a fixed A–Z palette.
 
 - **Add** in the bottom toolkit opens a popup for Vega-Lite JSON, including specs with inline data.
 - Right-click a chart (or use its **···** button) for **Comment**, **Speech comment**, **Share**, **Clear all comments**, and **Delete**. Comments open in a small box beside the chart. Speech comments fill an editable draft there; choose **Post** to add the comment and generate its annotation.
@@ -81,9 +81,9 @@ Opening the interface or a shared link asks for a username, prefilled with **pre
 
 Chart additions, movements, comments, and deletions use the existing collaboration connection. Comment drafts, annotation previews, default version choices, and live transcripts stay local to each browser.
 
-Every collaborator's cursor appears with their username and profile color. Positions follow whiteboard coordinates across window sizes and scrolling. Cursors disappear when participants leave the canvas, switch away, or disconnect. Cursor updates are transient and do not enter the chart history.
+Every collaborator's cursor appears with their username and profile color. Positions follow whiteboard coordinates across window sizes and scrolling. Cursors disappear when participants leave the canvas, switch away, or disconnect. Cursor updates are transient and do not enter the chart history. Cursor and visualization updates use a 30 fps send cadence over WebSockets without waiting for individual acknowledgements; the HTTP fallback can be slower on high-latency networks.
 
-The relay retries interrupted connections and replays missed messages. The presenter sends chart history to newly joined and reconnected participants; keep the presenter tab open for username approval and complete chart catch-up. Session credentials are kept for five minutes after a disconnect. Sessions are held in server memory, so a server restart requires reconnecting; if the presenter refreshes, copy a new sharing link. After deploying collaboration changes, run `./scripts/start-server.sh restart` on the hosting machine and refresh all participants' tabs.
+The relay retries interrupted connections and replays missed messages. The presenter sends chart history to newly joined and reconnected participants; keep the presenter tab open for complete chart catch-up. Session credentials are kept for five minutes after a disconnect. Sessions are held in server memory, so a server restart requires reconnecting; if the presenter refreshes, copy a new sharing link. After deploying collaboration changes, run `./scripts/start-server.sh restart` on the hosting machine, refresh all participants' tabs, and copy a new sharing link. Local assets are versioned on every server start to prevent clients mixing frontend versions; an outdated server produces an explicit update error.
 
 ## Local development
 
@@ -95,7 +95,7 @@ cd /path/to/VisChatter
 
 No Cloudflare login or tmux is needed locally. Node watches server changes; refresh your browser after editing frontend files. Ctrl+C stops development. Set `PORT=5503 ./shell/start-dev.sh` to use another port. To test from another device, set `HOST=0.0.0.0 ./shell/start-dev.sh`; microphone recognition generally requires HTTPS or localhost, so use localhost for speech testing. Use a browser that supports `SpeechRecognition` or `webkitSpeechRecognition` for voice input; microphone access is requested when you start recording or a speech comment. AI development requests use the local machine's private key file.
 
-Run `npm test` for whiteboard checks covering comment ordering, annotation previews, request cancellation, and mocked speech recording, plus server checks covering secret-file protection, missing keys, server-side model selection, live key reload, request validation, rate limits, and provider failures. `/healthz` returns origin health and whether an API key is present; it does not validate the key against OpenRouter.
+Run `npm test` for whiteboard checks covering comment ordering, annotation previews, request cancellation, and mocked speech recording; collaboration checks covering server-confirmed names, WebSocket/SSE interoperability, reconnect replay, cursor presence, and the 30 fps cadence with delayed acknowledgements; and server checks covering secret-file protection, missing keys, server-side model selection, live key reload, request validation, rate limits, and provider failures. `/healthz` returns origin health and whether an API key is present; it does not validate the key against OpenRouter.
 
 # Directories
 
@@ -115,7 +115,7 @@ Run `npm test` for whiteboard checks covering comment ordering, annotation previ
 
 `src/vega.js` contains functions used to render Vega-lite code.
 
-`src/visconnect-bundle.js` is forked from [VisConnect](https://visconnect.us/) and retains its chart event ledger and replay logic. `src/collaboration.js` supplies its HTTP communication adapter, `src/collaboration-server.js` relays session messages, and `src/cursors.js` renders transient collaborator presence using confirmed profile colors.
+`src/visconnect-bundle.js` is forked from [VisConnect](https://visconnect.us/) and retains its chart event ledger and replay logic. `src/collaboration.js` supplies its WebSocket/HTTP communication adapter, `src/collaboration-server.js` confirms usernames and relays session messages, and `src/cursors.js` renders transient collaborator presence using confirmed profile colors.
 
 ### Analyze
 

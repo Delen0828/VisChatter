@@ -12724,7 +12724,7 @@ var VcProtocol = /** @class */ (function () {
         this.heldEvents = new Map();
         this.heldRemoteEvents = new Map();
         this.collaboratorId = '';
-        var Communication = MockCommunication || window.VisChatterCommunication || VcCommunication;
+        var Communication = MockCommunication || window.VisChatterCommunication;
         this.communication = new Communication({
             leaderId: leaderId,
             ownId: ownId,
@@ -13078,6 +13078,7 @@ window.vc = {
     random: VisConnectUtil.random(leaderId),
     leaderId: leaderId,
     ownId: ownId,
+    identityAuthority: 'server',
 };
 disableStopPropagation();
 delayAddEventListener().then(function () {
@@ -13109,11 +13110,19 @@ delayAddEventListener().then(function () {
         el = document.body;
     }
     console.log('Initializing VisConnect...');
+    if (!window.VisChatterCommunication) {
+        document.getElementById('connection-status').setAttribute('data-state', 'disconnected');
+        document.getElementById('connection-status-text').textContent = 'Could not load collaboration. Refresh this page.';
+        window.vc.claimUsername = function () { return Promise.reject(new Error('Could not load collaboration. Refresh this page.')); };
+        window.dispatchEvent(new CustomEvent('visconnect-ready'));
+        return;
+    }
     visconnect = new Visconnect(el, ownId, leaderId, safeMode, customEvents, ignoreEvents);
     visconnectUi = new VisConnectUi(visconnect, el);
     visconnect.onEventCancelled = visconnectUi.eventCancelled.bind(visconnectUi);
     window.vc.sendProfileMessage = visconnect.protocol.communication.sendProfileMessage.bind(visconnect.protocol.communication);
     window.vc.sendCursorMessage = visconnect.protocol.communication.sendCursorMessage.bind(visconnect.protocol.communication);
+    window.vc.claimUsername = visconnect.protocol.communication.claimUsername.bind(visconnect.protocol.communication);
     window.vc.connectedIds = function () { return visconnect.protocol.communication.opened ? visconnect.protocol.communication.peers : []; };
     window.dispatchEvent(new CustomEvent('visconnect-ready'));
 });

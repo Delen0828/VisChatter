@@ -33,13 +33,23 @@ function fixture() {
         vc: { ownId: 'self', connectedIds: () => connected, sendCursorMessage: message => { sent.push(message); return true; } } });
     const timers = new Map(); const intervals = []; let timerId = 0; let now = 0;
     const context = vm.createContext({ document, window, Date: { now: () => now },
-        setTimeout: fn => { timers.set(++timerId, fn); return timerId; }, clearTimeout: id => timers.delete(id),
+        setTimeout: (fn, delay = 0) => { timers.set(++timerId, { fn, at: now + delay }); return timerId; }, clearTimeout: id => timers.delete(id),
         setInterval: fn => intervals.push(fn) });
     vm.runInContext(identity.slice(0, identity.indexOf('(() => {')), context);
     vm.runInContext(source, context);
     const receive = detail => window.emit('vischatter-cursor-message', { detail });
-    const flush = () => { const callbacks = [...timers.values()]; timers.clear(); callbacks.forEach(fn => fn()); };
+    const flush = () => { const callbacks = [...timers.values()]; timers.clear(); callbacks.forEach(timer => timer.fn()); };
+    const tick = ms => {
+        const end = now + ms;
+        while (true) {
+            const next = [...timers].filter(([, timer]) => timer.at <= end).sort((a, b) => a[1].at - b[1].at)[0];
+            if (!next) break;
+            now = next[1].at; timers.delete(next[0]); next[1].fn();
+        }
+        now = end;
+    };
     return { board, whiteboard, layer: whiteboard.children[0], document, window, profiles, sent, receive, flush, intervals,
+        tick,
         disconnect: ids => { connected = ids; window.emit('visconnect-connections-changed'); },
         advance: ms => { now += ms; intervals.forEach(fn => fn()); }, context };
 }
@@ -113,4 +123,15 @@ test('a cursor arriving before its roster waits for the confirmed profile and ne
     assert.equal(cursor.hidden, false);
     assert.equal(cursor.children[0].textContent, 'Álice');
     assert.equal(cursor.style.color, vm.runInContext("profileColor('Álice')", f.context));
+});
+
+test('60 fps pointer input publishes at 30 fps using the latest position', () => {
+    const f = fixture();
+    for (let frame = 0; frame < 60; frame++) {
+        f.document.emit('pointermove', { target: f.board, clientX: 200 + frame, clientY: 240 });
+        f.tick(1000 / 60);
+    }
+    assert.ok(f.sent.length >= 30 && f.sent.length <= 31, `Published ${f.sent.length} positions in one second`);
+    f.tick(1000 / 30);
+    assert.equal(f.sent.at(-1).x, 200 + 59 - f.board.rect.left - f.board.clientLeft + f.board.scrollLeft);
 });

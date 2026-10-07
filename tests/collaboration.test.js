@@ -5,13 +5,14 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import { createApp } from '../src/server.js';
+import WebSocket from 'ws';
 
 async function fixture(t) {
     const server = createApp();
     server.listen(0, '127.0.0.1');
     await once(server, 'listening');
     const origin = `http://127.0.0.1:${server.address().port}`;
-    t.after(() => { server.closeAllConnections(); return new Promise(resolve => server.close(resolve)); });
+    t.after(() => { server.emit('collaboration-shutdown'); server.closeAllConnections(); return new Promise(resolve => server.close(resolve)); });
     const post = (action, body, headers = {}) => fetch(`${origin}/api/collaboration/${action}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body),
     });
@@ -49,7 +50,24 @@ async function fixture(t) {
         }
         return { next, close: () => controller.abort() };
     }
-    return { post, stream, credentials, origin };
+    async function socket(client, headers = {}) {
+        const ws = new WebSocket(`${origin.replace('http:', 'ws:')}/api/collaboration/socket?${new URLSearchParams(client)}`, { headers });
+        const packets = [];
+        const notifications = new Set();
+        ws.on('message', buffer => { packets.push(JSON.parse(buffer.toString())); for (const notify of notifications) notify(); });
+        ws.on('error', () => {});
+        t.after(() => ws.terminate());
+        await once(ws, 'open');
+        async function next(kind) {
+            while (true) {
+                const index = packets.findIndex(packet => !kind || packet.kind === kind);
+                if (index >= 0) return packets.splice(index, 1)[0];
+                await new Promise(resolve => { const notify = () => { notifications.delete(notify); resolve(); }; notifications.add(notify); });
+            }
+        }
+        return { ws, next };
+    }
+    return { post, stream, socket, credentials, origin };
 }
 
 test('HTTPS relay admits independent clients without WebRTC and isolates rooms and credentials', { timeout: 10000 }, async t => {
@@ -140,21 +158,31 @@ const transportSource = await readFile(new URL('../src/collaboration.js', import
 function transportFixture() {
     const timers = new Map();
     let timerId = 0;
+    let now = 0;
     class CustomEvent extends Event { constructor(type, options) { super(type); this.detail = options.detail; } }
     const window = Object.assign(new EventTarget(), {});
     const history = [];
-    const context = vm.createContext({ window, crypto: { randomUUID }, URLSearchParams, AbortSignal, CustomEvent,
+    const context = vm.createContext({ window, crypto: { randomUUID }, URLSearchParams, AbortSignal, CustomEvent, Date: { now: () => now },
         EventSource: class { close() {} },
-        setTimeout: fn => { timers.set(++timerId, fn); return timerId; }, clearTimeout: id => timers.delete(id) });
+        setTimeout: (fn, delay = 0) => { timers.set(++timerId, { fn, at: now + delay }); return timerId; }, clearTimeout: id => timers.delete(id) });
     vm.runInContext(transportSource, context);
     const client = new window.VisChatterCommunication({ ownId: 'audience-id', leaderId: 'presenter-id',
         onOpenCallback() {}, onEventReceived: (...args) => history.push(args), getPastEvents: () => [],
         onNewLockOwner() {}, onLockRequested() {} });
-    return { client, history, window, timers };
+    function advance(ms) {
+        const end = now + ms;
+        while (true) {
+            const next = [...timers].filter(([, timer]) => timer.at <= end).sort((a, b) => a[1].at - b[1].at)[0];
+            if (!next) break;
+            now = next[1].at; timers.delete(next[0]); next[1].fn();
+        }
+        now = end;
+    }
+    return { client, history, window, timers, advance };
 }
 
 test('HTTP transport orders retries, coalesces cursor updates, and uses authenticated profile senders', async () => {
-    const { client, window } = transportFixture();
+    const { client, window, advance } = transportFixture();
     client.receivePacket({ kind: 'ready', peers: [client.id, client.leaderId, 'bob-id'] });
     const batches = [];
     let fail = true;
@@ -168,6 +196,9 @@ test('HTTP transport orders retries, coalesces cursor updates, and uses authenti
     assert.equal(client.outbox.length, 2);
     await client.flush();
     client.broadcastEvent({ seqNum: 1, event: { type: 'chart-resize' } });
+    advance(1500);
+    await new Promise(resolve => setImmediate(resolve));
+    advance(34);
     await client.flush();
     await new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(batches[0], batches[1]);
@@ -182,7 +213,7 @@ test('HTTP transport orders retries, coalesces cursor updates, and uses authenti
 });
 
 test('presenters send catch-up on joins and reconnects; guests accept history only from the presenter', async () => {
-    const { client, history } = transportFixture();
+    const { client, history, advance } = transportFixture();
     client.receiveMessage({ type: 0, eventsLedger: ['fake'] }, 'bob-id');
     assert.equal(history.length, 0);
     client.receiveMessage({ type: 0, eventsLedger: ['saved'] }, client.leaderId);
@@ -192,6 +223,8 @@ test('presenters send catch-up on joins and reconnects; guests accept history on
     client.post = async (_action, body) => sent.push(structuredClone(body));
     client.receivePacket({ kind: 'ready', peers: [client.id, 'bob-id'] });
     client.receivePacket({ kind: 'joined', id: 'alice-id' });
+    await new Promise(resolve => setImmediate(resolve));
+    advance(34);
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(sent.flatMap(batch => batch.messages).filter(e => e.message.type === 0).length, 2);
     client.receivePacket({ kind: 'left', id: 'bob-id' });
@@ -206,7 +239,7 @@ test('expired registrations reset the batch sequence, preserve unsent edits, and
     const sent = [];
     client.post = async (action, body) => {
         sent.push({ action, body: structuredClone(body) });
-        return { sequence: 0 };
+        return { sequence: 0, protocol: 2 };
     };
     client.sending = true;
     await client.join();
@@ -224,7 +257,7 @@ test('expired registrations reset the batch sequence, preserve unsent edits, and
 });
 
 test('large catch-up histories are chunked without reordering or dropping chart events', async () => {
-    const { client } = transportFixture();
+    const { client, advance } = transportFixture();
     const history = Array.from({ length: 6 }, (_, seqNum) => ({ seqNum, event: { type: 'vl-spec', detail: { text: 'x'.repeat(400000) } } }));
     client.getPastEvents = () => history;
     client.sendHistory(client.leaderId);
@@ -235,6 +268,115 @@ test('large catch-up histories are chunked without reordering or dropping chart 
     client.opened = true;
     await client.flush();
     await new Promise(resolve => setImmediate(resolve));
+    advance(34);
+    await new Promise(resolve => setImmediate(resolve));
+    advance(34);
+    await new Promise(resolve => setImmediate(resolve));
     assert.equal(sent.length, 3);
     assert.ok(sent.every(batch => JSON.stringify(batch).length < 1024 * 1024));
+});
+
+test('username confirmation succeeds without a presenter stream and reserves simultaneous names atomically', { timeout: 10000 }, async t => {
+    const app = await fixture(t);
+    const host = app.credentials();
+    const alice = app.credentials(host.room);
+    const bob = app.credentials(host.room);
+    for (const client of [host, alice, bob]) assert.equal((await app.post('join', client)).status, 200);
+    const claim = (client, username) => app.post('profile', { ...client, requestId: randomUUID(), username });
+    assert.equal((await (await claim(alice, 'presenter')).json()).error.includes('already in use'), true);
+    const results = await Promise.all([claim(alice, ' Alice '), claim(bob, 'ALICE')].map(async request => (await request).json()));
+    assert.equal(results.filter(result => !result.error).length, 1);
+    assert.equal(results.filter(result => result.error.includes('already in use')).length, 1);
+    const request = { ...bob, requestId: randomUUID(), username: 'Bob' };
+    const first = await (await app.post('profile', request)).json();
+    const retry = await (await app.post('profile', request)).json();
+    assert.equal(first.profile.username, 'Bob');
+    assert.equal(first.revision, retry.revision);
+    const hostStream = await app.stream(host);
+    assert.ok((await hostStream.next('ready')).profiles.participants.some(profile => profile.username === 'Bob'));
+    const foreign = app.credentials();
+    await app.post('join', foreign);
+    assert.equal((await app.post('profile', { ...bob, token: foreign.token, requestId: randomUUID(), username: 'Forged' })).status, 403);
+});
+
+test('WebSocket and SSE clients share authenticated changes, profiles, history and reconnect replay', { timeout: 10000 }, async t => {
+    const app = await fixture(t);
+    const host = app.credentials();
+    const guest = app.credentials(host.room);
+    await app.post('join', host); await app.post('join', guest);
+    const presenter = await app.socket(host);
+    await presenter.next('ready');
+    const audience = await app.stream(guest);
+    assert.equal((await audience.next('ready')).peers.length, 2);
+    assert.equal((await presenter.next('joined')).id, guest.id);
+    await app.post('profile', { ...guest, requestId: randomUUID(), username: 'Alice' });
+    assert.ok((await presenter.next('profiles')).profile.participants.some(profile => profile.id === guest.id));
+    const send = sequence => presenter.ws.send(JSON.stringify({ sequence, messages: [{ message: { type: 1,
+        data: [{ seqNum: sequence - 1, event: { type: 'chart-move', target: 'body', detail: { x: sequence * 20 } } }] } }] }));
+    send(1);
+    assert.equal((await presenter.next('ack')).sequence, 1);
+    const first = await audience.next('message');
+    assert.equal(first.message.data[0].event.collaboratorId, host.id);
+    audience.close();
+    await presenter.next('left');
+    send(2);
+    await presenter.next('ack');
+    const reconnected = await app.socket({ ...guest, lastEventId: first.eventId });
+    await reconnected.next('ready');
+    assert.equal((await reconnected.next('message')).message.data[0].seqNum, 1);
+    reconnected.ws.send(JSON.stringify({ sequence: 1, messages: [{ message: { type: 'vischatter-cursor', visible: true, x: 42, y: 60 } }] }));
+    assert.equal((await presenter.next('message')).message.x, 42);
+});
+
+test('WebSocket upgrades reject other origins and invalid session tokens', { timeout: 10000 }, async t => {
+    const app = await fixture(t);
+    const host = app.credentials(); await app.post('join', host);
+    await assert.rejects(app.socket(host, { Origin: 'https://foreign.example' }), /403/);
+    await assert.rejects(app.socket({ ...host, token: randomUUID() }), /403/);
+});
+
+test('cursor and visualization batches continue at 30 fps while all acknowledgements are delayed', () => {
+    const { client, advance } = transportFixture();
+    client.opened = true;
+    client.peers = [client.id, client.leaderId];
+    const sent = [];
+    client.socket = { readyState: 1, send: data => sent.push(JSON.parse(data)) };
+    for (let tick = 0; tick < 200; tick++) {
+        client.sendCursorMessage({ visible: true, x: tick, y: tick });
+        client.broadcastEvent({ seqNum: tick, event: { type: 'chart-move', target: 'body', detail: { x: tick } } });
+        advance(5);
+    }
+    assert.ok(sent.length >= 30 && sent.length <= 31, `Sent ${sent.length} batches in one second`);
+    assert.equal(client.unacknowledged.size, sent.length);
+    assert.equal([...sent.flatMap(batch => batch.messages), ...client.outbox].filter(entry => entry.message.type === 1).flatMap(entry => entry.message.data).length, 200);
+    advance(1000 / 30);
+    assert.equal(sent.at(-1).messages.find(entry => entry.message.type === 'vischatter-cursor').message.x, 199);
+    client.receivePacket({ kind: 'ack', sequence: client.sequence });
+    assert.equal(client.unacknowledged.size, 0);
+});
+
+test('an old server gives a version error instead of falling back to PeerJS or waiting for the presenter', async () => {
+    const { client } = transportFixture();
+    client.post = async () => ({ sequence: 0 });
+    await assert.rejects(client.claimUsername({ requestId: randomUUID(), username: 'Alice' }), /server needs an update/);
+    assert.equal(client.registered, undefined);
+});
+
+test('WebSocket reconnect resends only uncommitted edits before a failed send and newer queued changes', async () => {
+    const { client } = transportFixture();
+    const message = seqNum => ({ message: { type: 1, data: [{ seqNum, event: { type: 'chart-move' } }] } });
+    client.sequence = 3;
+    client.unacknowledged = new Map([1, 2, 3].map(sequence => [sequence, { sequence, messages: [message(sequence)] }]));
+    client.batch = { sequence: 4, messages: [message(4)] };
+    client.outbox = [message(5)];
+    client.lastEventId = 10;
+    client.post = async () => ({ protocol: 2, sequence: 1 });
+    await client.ensureRegistered();
+    const sent = [];
+    client.socket = { readyState: 1, send: data => sent.push(JSON.parse(data)) };
+    client.opened = true;
+    await client.flush();
+    assert.equal(sent[0].sequence, 2);
+    assert.deepEqual(sent[0].messages.flatMap(entry => entry.message.data).map(event => event.seqNum), [2, 3, 4, 5]);
+    assert.equal(client.unacknowledged.size, 1);
 });

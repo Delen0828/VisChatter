@@ -8,10 +8,12 @@ require_command() {
 
 prepare_app() {
     require_command node
+    require_command npm
     node -e 'if (Number(process.versions.node.split(".")[0]) < 20) process.exit(1)' || {
         echo '[Error] Node.js 20 or newer is required.' >&2
         exit 1
     }
+    (cd "$APP_DIR" && npm ci --omit=dev --ignore-scripts --no-audit --no-fund)
     KEY_FILE="${API_KEYS_FILE:-$APP_DIR/env/key}"
     if [[ ! -f "$KEY_FILE" && -n "${API_KEYS_FILE:-}" ]]; then
         echo "[Error] The custom API_KEYS_FILE does not exist: $KEY_FILE" >&2

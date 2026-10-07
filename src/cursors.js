@@ -10,6 +10,7 @@
     let pointer = null;
     let timer;
     let visible = false;
+    let lastPublish = -Infinity;
 
     function render(id, cursor) {
         const profile = window.commentIdentity?.profileFor(id);
@@ -58,9 +59,12 @@
             hide();
             return;
         }
+        lastPublish = Date.now();
         visible = window.vc.sendCursorMessage?.({ visible: true, x, y }) || false;
     }
-    function schedule() { if (!timer) timer = setTimeout(publish, 50); }
+    function schedule() {
+        if (!timer) timer = setTimeout(publish, Math.max(0, 1000 / 30 - (Date.now() - lastPublish)));
+    }
     function hide() {
         pointer = null;
         clearTimeout(timer);

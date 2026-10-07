@@ -1,5 +1,5 @@
-// Implements the VisConnect communication API over the app's HTTPS origin.
-// EventSource reconnects automatically; POST batches retain order and retry safely.
+// Same-origin WebSocket relay, with SSE/HTTP fallback when an upgrade is blocked.
+const COLLABORATION_FRAME_INTERVAL = 1000 / 30;
 class VisChatterCommunication {
     constructor(data) {
         Object.assign(this, data);
@@ -9,6 +9,8 @@ class VisChatterCommunication {
         this.opened = false;
         this.sequence = 0;
         this.outbox = [];
+        this.unacknowledged = new Map();
+        this.lastFlush = -Infinity;
         this.onConnectionCallback = () => {};
     }
     credentials() { return { room: this.leaderId, id: this.id, token: this.token }; }
@@ -18,20 +20,64 @@ class VisChatterCommunication {
             this.stopped = true;
             clearTimeout(this.retryTimer);
             clearTimeout(this.sendTimer);
+            clearTimeout(this.socketTimer);
             this.source?.close();
+            this.socket?.close();
             navigator.sendBeacon?.('/api/collaboration/leave', new Blob([JSON.stringify(this.credentials())], { type: 'application/json' }));
         });
         window.addEventListener('pageshow', event => {
-            if (event.persisted) { this.stopped = false; this.join(); }
+            if (event.persisted) { this.stopped = false; this.registered = false; this.join(); }
         });
     }
     async post(action, body) {
-        const response = await fetch(`/api/collaboration/${action}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...this.credentials(), ...body }), signal: AbortSignal.timeout(15000),
-        });
-        const result = await response.json();
-        if (!response.ok) throw Object.assign(new Error(result.error || 'Cannot connect to this session.'), { status: response.status });
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 15000);
+        try {
+            const response = await fetch(`/api/collaboration/${action}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...this.credentials(), ...body }), signal: controller.signal,
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw Object.assign(new Error(typeof result.error === 'string' ? result.error
+                : result.error?.message || 'Cannot connect to this session. Refresh the presenter and try a new sharing link.'), { status: response.status });
+            return result;
+        } finally { clearTimeout(timer); }
+    }
+    async ensureRegistered() {
+        if (this.registered) return;
+        if (!this.registration) this.registration = this.post('join').then(result => {
+            if (result.protocol !== 2) throw Object.assign(new Error('The collaboration server needs an update. Restart it and refresh both browsers.'), { status: 426 });
+            const missed = [...this.unacknowledged.values()].filter(batch => batch.sequence > result.sequence);
+            if (missed.length) {
+                // Earlier unacknowledged edits must precede a batch whose send failed.
+                this.outbox.unshift(...missed.flatMap(batch => batch.messages),
+                    ...(this.batch?.sequence > result.sequence ? this.batch.messages : []));
+                this.batch = null;
+            }
+            this.unacknowledged.clear();
+            if (this.batch && this.batch.sequence <= result.sequence) this.batch = null;
+            else if (this.batch) this.batch.sequence = result.sequence + 1;
+            if (result.sequence < this.sequence) this.lastEventId = 0;
+            this.sequence = result.sequence;
+            this.registered = true;
+        }).finally(() => { this.registration = null; });
+        return this.registration;
+    }
+    publishProfiles(profile) {
+        if (profile) window.dispatchEvent(new CustomEvent('vischatter-profile-message',
+            { detail: { ...profile, sender: this.leaderId, serverConfirmed: true } }));
+    }
+    async claimUsername(request) {
+        await this.ensureRegistered();
+        let result;
+        try { result = await this.post('profile', request); }
+        catch (error) {
+            if (error.status !== 403) throw error;
+            this.registered = false;
+            await this.ensureRegistered();
+            result = await this.post('profile', request);
+        }
+        this.publishProfiles({ ...result, action: 'roster' });
         return result;
     }
     async join() {
@@ -43,19 +89,9 @@ class VisChatterCommunication {
         }
         this.joining = true;
         try {
-            const result = await this.post('join');
+            await this.ensureRegistered();
             if (this.stopped) return;
-            if (this.batch && this.batch.sequence <= result.sequence) this.batch = null;
-            else if (this.batch) this.batch.sequence = result.sequence + 1;
-            this.sequence = result.sequence;
-            this.source?.close();
-            this.source = new EventSource(`/api/collaboration/events?${new URLSearchParams(this.credentials())}`);
-            this.source.onmessage = event => this.receivePacket(JSON.parse(event.data));
-            this.source.onerror = () => {
-                this.opened = false;
-                this.statusText = 'Reconnecting…';
-                this.onConnectionCallback();
-            };
+            this.connectRealtime();
         } catch (error) {
             this.opened = false;
             this.statusText = error.status ? error.message : 'Reconnecting…';
@@ -63,9 +99,56 @@ class VisChatterCommunication {
             this.retryTimer = setTimeout(() => this.join(), 2000);
         } finally { this.joining = false; }
     }
+    connectRealtime() {
+        if (typeof WebSocket !== 'function') { this.connectEventSource(); return; }
+        this.source?.close();
+        const url = new URL('/api/collaboration/socket', location.href);
+        url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+        url.search = new URLSearchParams({ ...this.credentials(), lastEventId: this.lastEventId || 0 });
+        const socket = this.socket = new WebSocket(url);
+        let ready = false;
+        this.socketTimer = setTimeout(() => { if (!ready && this.socket === socket) { this.socket = null; socket.close(); this.connectEventSource(); } }, 3500);
+        socket.onmessage = event => {
+            if (this.socket !== socket) return;
+            const packet = JSON.parse(event.data);
+            if (packet.kind === 'ready') { ready = true; clearTimeout(this.socketTimer); }
+            this.receivePacket(packet);
+        };
+        socket.onerror = () => {}; // Close handles upgrade failures and reconnects.
+        socket.onclose = () => {
+            if (this.socket !== socket || this.stopped) return;
+            clearTimeout(this.socketTimer);
+            this.socket = null;
+            this.opened = false;
+            if (!ready) { this.connectEventSource(); return; }
+            this.registered = false;
+            this.statusText = 'Reconnecting…';
+            this.onConnectionCallback();
+            this.retryTimer = setTimeout(() => this.join(), 1000);
+        };
+    }
+    connectEventSource() {
+        if (this.stopped) return;
+        this.source?.close();
+        this.source = new EventSource(`/api/collaboration/events?${new URLSearchParams(this.credentials())}`);
+        this.source.onmessage = event => {
+            if (event.lastEventId) this.lastEventId = Number(event.lastEventId);
+            this.receivePacket(JSON.parse(event.data));
+        };
+        this.source.onerror = () => { this.opened = false; this.statusText = 'Reconnecting…'; this.onConnectionCallback(); };
+    }
     receivePacket(packet) {
-        if (packet.kind === 'expired') {
+        if (packet.eventId) this.lastEventId = packet.eventId;
+        if (packet.kind === 'ack') {
+            for (const sequence of this.unacknowledged.keys()) if (sequence <= packet.sequence) this.unacknowledged.delete(sequence);
+        } else if (packet.kind === 'profiles') this.publishProfiles(packet.profile);
+        else if (packet.kind === 'error') {
+            this.statusText = packet.error;
+            this.onConnectionCallback();
+            this.socket?.close();
+        } else if (packet.kind === 'expired') {
             this.source.close();
+            this.registered = false;
             this.opened = false;
             this.statusText = 'Reconnecting…';
             this.onConnectionCallback();
@@ -74,6 +157,7 @@ class VisChatterCommunication {
             this.peers = packet.peers;
             this.opened = true;
             this.statusText = '';
+            this.publishProfiles(packet.profiles);
             this.onOpenCallback();
             this.onConnectionCallback();
             if (this.id === this.leaderId) for (const peer of this.peers) if (peer !== this.id) this.sendHistory(peer);
@@ -91,11 +175,16 @@ class VisChatterCommunication {
     getNumberOfConnections() { return this.opened ? this.peers.length : 0; }
     send(message, recipient) {
         this.outbox.push({ message: { ...message, sender: this.id }, ...(recipient ? { recipient } : {}) });
-        if (!this.sendTimer) this.sendTimer = setTimeout(() => { this.sendTimer = null; this.flush(); }, 40);
+        this.scheduleFlush();
+    }
+    scheduleFlush() {
+        if (this.sendTimer || (!this.batch && !this.outbox.length)) return;
+        this.sendTimer = setTimeout(() => { this.sendTimer = null; this.flush(); },
+            Math.max(0, COLLABORATION_FRAME_INTERVAL - (Date.now() - this.lastFlush)));
     }
     async flush() {
         if (this.sending || !this.opened || this.stopped || (!this.batch && !this.outbox.length)) return;
-        this.sending = true;
+        if (Date.now() - this.lastFlush < COLLABORATION_FRAME_INTERVAL - 0.5) { this.scheduleFlush(); return; }
         if (!this.batch) {
             const messages = [];
             let size = 0;
@@ -107,13 +196,25 @@ class VisChatterCommunication {
             }
             this.batch = { sequence: this.sequence + 1, messages };
         }
+        this.lastFlush = Date.now();
+        if (this.socket?.readyState === 1) {
+            const batch = this.batch;
+            try { this.socket.send(JSON.stringify(batch)); }
+            catch { this.socket.close(); return; }
+            this.sequence = batch.sequence;
+            this.unacknowledged.set(batch.sequence, batch);
+            this.batch = null;
+            this.scheduleFlush();
+            return;
+        }
+        this.sending = true;
         try {
             await this.post('messages', this.batch);
             this.sequence = this.batch.sequence;
             this.batch = null;
             if (this.statusText) { this.statusText = ''; this.onConnectionCallback(); }
             this.sending = false;
-            this.flush();
+            this.scheduleFlush();
         } catch (error) {
             this.sending = false;
             this.statusText = error.status && ![403, 409].includes(error.status) ? error.message : 'Reconnecting…';
@@ -121,6 +222,7 @@ class VisChatterCommunication {
             if ([403, 409].includes(error.status)) {
                 this.opened = false;
                 this.source?.close();
+                this.registered = false;
                 this.join();
             } else if (!error.status || error.status === 429 || error.status >= 500) {
                 this.sendTimer = setTimeout(() => { this.sendTimer = null; this.flush(); }, 1500);
@@ -175,7 +277,7 @@ class VisChatterCommunication {
     receiveMessage(data, sender) {
         if (data.type === 'vischatter-profile' || data.type === 'vischatter-cursor') {
             window.dispatchEvent(new CustomEvent(data.type === 'vischatter-profile' ? 'vischatter-profile-message' : 'vischatter-cursor-message',
-                { detail: { ...data, sender } }));
+                { detail: { ...data, sender, serverConfirmed: false } }));
         } else if (data.type === 0 && sender === this.leaderId) this.onEventReceived(data.eventsLedger, sender, true);
         else if (data.type === 1) this.onEventReceived(data.data, sender);
         else if (data.type === 2 && this.id === this.leaderId) this.onLockRequested(data.targetSelector, sender);

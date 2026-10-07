@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 const sources = await Promise.all(['identity.js', 'js.js', 'util.js', 'highlight.js', 'share.js', 'delete.js'].map(file => readFile(new URL(`../src/${file}`, import.meta.url), 'utf8')));
 
 // A small event-driven DOM fixture keeps these behavior tests dependency-free.
-function setup({ ownId = 'presenter', leaderId = 'presenter', autoJoin = true, sendProfileMessage } = {}) {
+function setup({ ownId = 'presenter', leaderId = 'presenter', autoJoin = true, sendProfileMessage, claimUsername, identityAuthority } = {}) {
     const nodes = new Map();
     const timers = new Map();
     const renders = [];
@@ -57,7 +57,7 @@ function setup({ ownId = 'presenter', leaderId = 'presenter', autoJoin = true, s
     });
     class CustomEvent extends Event { constructor(type, options = {}) { super(type); this.detail = options.detail; } }
     const window = Object.assign(new EventTarget(), {
-        vc: { ownId, leaderId }, innerWidth: 1280, innerHeight: 800
+        vc: { ownId, leaderId, claimUsername, identityAuthority }, innerWidth: 1280, innerHeight: 800
     });
     window.vc.sendProfileMessage = sendProfileMessage || (message => {
         if (message.action === 'claim') window.dispatchEvent(new CustomEvent('vischatter-profile-message', { detail: {
@@ -239,6 +239,33 @@ test('late visitors receive the roster and historical comments retain their auth
     joinAs(late, ' ALICE ');
     session.deliver();
     assert.match(late.nodes.get('username-error').textContent, /already in use/);
+});
+
+test('server-confirmed names join without messages to the presenter and reject peer-supplied rosters', async () => {
+    const viewer = setup({ ownId: 'viewer', autoJoin: false, identityAuthority: 'server',
+        sendProfileMessage: () => { throw new Error('Must not wait for the presenter'); },
+        claimUsername: async request => ({ action: 'result', requestId: request.requestId, participantId: 'viewer',
+            profile: { id: 'viewer', username: request.username }, participants: [{ id: 'viewer', username: request.username }], revision: 1 }) });
+    joinAs(viewer, 'Alice');
+    assert.equal(viewer.nodes.get('username-submit').disabled, true);
+    await settleRequests();
+    assert.equal(viewer.context.window.commentIdentity.current.username, 'Alice');
+    assert.equal(viewer.nodes.get('username-dialog').open, false);
+    viewer.context.window.dispatchEvent(new viewer.context.CustomEvent('vischatter-profile-message', { detail: {
+        sender: 'presenter', action: 'roster', participants: [{ id: 'viewer', username: 'Forged' }], revision: 10
+    } }));
+    assert.equal(viewer.context.window.commentIdentity.profileFor('viewer').username, 'Alice');
+});
+
+test('server join failures show the actual connection error and restore the username controls', async () => {
+    const viewer = setup({ ownId: 'viewer', autoJoin: false, identityAuthority: 'server',
+        claimUsername: async () => { throw new Error('Session unavailable. Ask the presenter for a new sharing link.'); } });
+    joinAs(viewer, 'Alice');
+    await settleRequests();
+    assert.match(viewer.nodes.get('username-error').textContent, /Session unavailable/);
+    assert.doesNotMatch(viewer.nodes.get('username-error').textContent, /confirm.*presenter/);
+    assert.equal(viewer.nodes.get('username-submit').disabled, false);
+    assert.equal(viewer.nodes.get('username-input').disabled, false);
 });
 
 test('comment bubbles show at most three distinct authors and every expanded comment has its author', () => {
