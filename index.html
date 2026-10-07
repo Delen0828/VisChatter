@@ -14,9 +14,9 @@
 	<title>VisChatter</title>
 </head>
 
-<body collaboration="live" custom-events="vl-spec,chart-comment,chart-comments-clear,chart-delete,chart-move,board-clear" ignore-events="SpeechRecognitionEvent,aiAssistToggle">
+<body collaboration="live" custom-events="vl-spec,chart-comment,chart-comment-delete,chart-comments-clear,chart-delete,chart-move,board-clear" ignore-events="SpeechRecognitionEvent,aiAssistToggle">
     <header id="headline">
-        <a class="brand" href="./" aria-label="VisChatter home"><span class="brand-mark" aria-hidden="true">V</span><h1>VisChatter</h1></a>
+        <a class="brand" href="./" aria-label="VisChatter home"><h1>VisChatter</h1></a>
         <div class="header-statuses" data-visconnect-local>
             <div id="connection-status" class="header-status" data-state="connecting" role="status" aria-live="polite">
                 <span class="connection-dot" aria-hidden="true"></span><span id="connection-status-text">Connecting…</span>
@@ -34,6 +34,7 @@
                 </select>
             </label>
             <div class="visconnect-container"></div>
+            <span id="current-profile" data-visconnect-local hidden></span>
         </div>
     </header>
 
@@ -41,7 +42,10 @@
         <div id="vis-container" aria-label="Charts"></div>
         <div class="toolkit-dock" data-visconnect-local>
             <section id="live-transcript" aria-label="Live transcript" hidden>
-                <div class="transcript-heading"><span id="transcript-indicator" class="record-dot"></span><span id="transcript-status">Live transcript</span></div>
+                <div class="transcript-heading">
+                    <span id="transcript-indicator" class="record-dot" aria-hidden="true"></span><strong id="transcript-status">Live Transcript</strong>
+                    <button id="transcript-toggle" type="button" aria-label="Hide transcript" title="Hide transcript" aria-controls="transcript-text" aria-expanded="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg></button>
+                </div>
                 <p id="transcript-text" role="status" aria-live="polite"></p>
             </section>
             <div id="toolkit" role="toolbar" aria-label="Whiteboard toolkit">
@@ -76,6 +80,16 @@
         </section>
     </main>
 
+    <dialog id="username-dialog" class="board-dialog username-dialog" aria-labelledby="username-title" data-visconnect-local>
+        <form id="username-form" novalidate>
+            <div class="dialog-heading"><h2 id="username-title">Choose a username</h2></div>
+            <label for="username-input">Username</label>
+            <div class="username-field"><span id="username-preview" aria-hidden="true"></span><input id="username-input" name="username" type="text" maxlength="40" autocomplete="nickname" aria-describedby="username-error" required></div>
+            <p id="username-error" class="form-error" role="alert" hidden></p>
+            <div class="dialog-footer"><button id="username-submit" type="submit" class="primary-button">Join</button></div>
+        </form>
+    </dialog>
+
     <dialog id="add-dialog" class="board-dialog" aria-labelledby="add-title" data-visconnect-local>
         <form id="add-form" novalidate>
             <div class="dialog-heading"><h2 id="add-title">Add a visualization</h2><button type="button" class="icon-button" data-close-dialog="add-dialog" aria-label="Close add visualization">×</button></div>
@@ -103,6 +117,7 @@
     <canvas id="canvas" hidden></canvas>
     <script src="connect.js"></script>
     <script src="visconnect-bundle.js"></script>
+    <script src="identity.js"></script>
     <script src="util.js"></script>
     <script src="js.js"></script>
     <script src="drag.js"></script>

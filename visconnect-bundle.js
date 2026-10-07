@@ -11206,6 +11206,7 @@ var VisConnectUi = /** @class */ (function () {
         if (this.connectionFailed) this.setConnectionStatus('disconnected', 'Disconnected');
         else if (communication.opened) this.setConnectionStatus('connected', collaborators > 0 ? String(collaborators) + ' connected' : 'Connected');
         else this.setConnectionStatus('connecting', 'Connecting…');
+        window.dispatchEvent(new CustomEvent('visconnect-connections-changed'));
     };
     VisConnectUi.prototype.invite = function () {
         var communication = this.visconnect.protocol.communication;
@@ -11249,7 +11250,7 @@ var VisConnectUi = /** @class */ (function () {
         var container = document.createElement('div');
         container.id = 'visconnect-container';
         container.setAttribute('data-visconnect-local', '');
-        container.innerHTML = '<a id="visconnect-invite"><svg id="visconnect-logo" viewBox="0 0 24 24" aria-hidden="true"><path d="m10 13 4-4m-5 6-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 2 2-2a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0"/></svg><span>Share</span></a><span id="visconnect-link-copied">Link copied</span><span id="visconnect-not-ready">Not connected yet</span>';
+        container.innerHTML = '<a id="visconnect-invite"><svg id="visconnect-logo" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Share</span></a><span id="visconnect-link-copied">Link copied</span><span id="visconnect-not-ready">Not connected yet</span>';
         document.body.appendChild(container);
         document.getElementById('visconnect-invite').onclick = this.invite.bind(this);
     };
@@ -12515,7 +12516,8 @@ var VcCommunication = /** @class */ (function () {
                         return [4 /*yield*/, connection.open()];
                     case 1:
                         _a.sent();
-                        connection.messages.subscribe(this.receiveMessage.bind(this));
+                        connection.messages.subscribe(function (data) { this.receiveMessage(data, peer); }.bind(this));
+                        this.onConnectionCallback();
                         if (this.leaderId === this.id) {
                             this.sendNewConnection(connection);
                         }
@@ -12548,14 +12550,33 @@ var VcCommunication = /** @class */ (function () {
                         if (peer === this.leaderId) {
                             this.leaderConnection = connection;
                         }
-                        connection.messages.subscribe(this.receiveMessage.bind(this));
+                        connection.messages.subscribe(function (data) { this.receiveMessage(data, peer); }.bind(this));
                         return [2 /*return*/];
                 }
             });
         });
     };
-    VcCommunication.prototype.receiveMessage = function (data) {
-        if (data.type === VC_MESSAGE_TYPE.NEW_CONNECTION) {
+    // Username claims use direct messages so concurrent claims reach the presenter
+    // without competing for sequence numbers in the visualization event ledger.
+    VcCommunication.prototype.sendProfileMessage = function (message, recipient) {
+        var sent = false;
+        var peers = new Set();
+        var data = Object.assign({}, message, { type: 'vischatter-profile', sender: this.id });
+        for (var i = 0; i < this.connections.length; i++) {
+            var conn = this.connections[i];
+            var peer = conn.getPeer();
+            if (peer === this.id || peers.has(peer) || (recipient && peer !== recipient) || !conn.connection.open) continue;
+            try { conn.send(data); } catch (error) { continue; }
+            peers.add(peer);
+            sent = true;
+        }
+        return sent;
+    };
+    VcCommunication.prototype.receiveMessage = function (data, peer) {
+        if (data.type === 'vischatter-profile') {
+            if (peer) window.dispatchEvent(new CustomEvent('vischatter-profile-message', { detail: Object.assign({}, data, { sender: peer }) }));
+        }
+        else if (data.type === VC_MESSAGE_TYPE.NEW_CONNECTION) {
             this.receiveNewConnection(data);
         }
         else if (data.type === VC_MESSAGE_TYPE.EVENT) {
@@ -13079,5 +13100,7 @@ delayAddEventListener().then(function () {
     visconnect = new Visconnect(el, ownId, leaderId, safeMode, customEvents, ignoreEvents);
     visconnectUi = new VisConnectUi(visconnect, el);
     visconnect.onEventCancelled = visconnectUi.eventCancelled.bind(visconnectUi);
+    window.vc.sendProfileMessage = visconnect.protocol.communication.sendProfileMessage.bind(visconnect.protocol.communication);
+    window.dispatchEvent(new CustomEvent('visconnect-ready'));
 });
 //# sourceMappingURL=visconnect-bundle.js.map

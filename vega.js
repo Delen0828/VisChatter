@@ -23,7 +23,7 @@ function renderVegaLite(spec, uniqueId = createBoardId('vis')) {
         </div>
     </div>
     <section id="${uniqueId}-comments" class="comment-popover" aria-label="Chart comments" data-visconnect-local hidden>
-        <div class="comment-popover-heading"><h3>Comments</h3><button type="button" class="icon-button" aria-label="Close comments">×</button></div>
+        <div class="comment-popover-heading"><h3>Comments</h3><button type="button" class="comment-clear-all">Clear all</button></div>
         <ol class="comment-list"></ol>
     </section>
     <div class="chart-visualization"></div>`;
@@ -31,7 +31,9 @@ function renderVegaLite(spec, uniqueId = createBoardId('vis')) {
     originalVisualizations[uniqueId] = structuredClone(vegaLiteSpec);
     callApi(JSON.stringify(vegaLiteSpec), uniqueId);
     chart.querySelector('.comment-bubble').addEventListener('click', () => toggleCommentList(chart));
-    chart.querySelector('.comment-popover .icon-button').addEventListener('click', () => closeCommentList(chart));
+    chart.querySelector('.comment-clear-all').addEventListener('click', () => {
+        boardEvent('chart-comments-clear', { visId: uniqueId, generation: (chartCommentGenerations[uniqueId] || 0) + 1 });
+    });
     chart.querySelector('.chart-menu-button').addEventListener('click', event => {
         const rect = event.currentTarget.getBoundingClientRect();
         openChartMenu(chart, rect.left, rect.bottom + 5);
@@ -52,22 +54,53 @@ function renderVegaLite(spec, uniqueId = createBoardId('vis')) {
 function reRenderVegaLite(spec, uniqueId) {
     const chart = document.getElementById(uniqueId);
     if (!chart || !spec) return;
+    const specKey = JSON.stringify(spec);
+    if (chart.requestedSpec === specKey) return chart.renderQueue;
+    chart.requestedSpec = specKey;
     const version = chart.renderVersion = (chart.renderVersion || 0) + 1;
-    // Serialize embeds so a slower preview cannot replace a newer annotation.
-    chart.renderQueue = (chart.renderQueue || Promise.resolve()).then(async () => {
+    // Returning to the visible version also invalidates any unfinished preview.
+    if (chart.renderedSpec === specKey) return chart.renderQueue = Promise.resolve();
+    // Coalesce requests in this turn, then render without clearing the visible plot.
+    chart.renderQueue = Promise.resolve().then(async () => {
         if (!chart.isConnected || chart.renderVersion !== version) return;
-        chart.vegaView?.finalize();
         const target = chart.querySelector('.chart-visualization');
+        const staging = document.createElement('div');
+        staging.className = 'chart-visualization';
+        staging.setAttribute('data-visconnect-local', '');
+        staging.setAttribute('aria-hidden', 'true');
+        staging.style.cssText = 'position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none';
+        // Container-sized specs need the same available width as the visible plot.
+        staging.style.width = `${target.getBoundingClientRect().width}px`;
+        document.body.appendChild(staging);
+        let committed = false;
         try {
-            const result = await vegaEmbed(target, spec, { actions: false, renderer: 'svg' });
-            if (!chart.isConnected) result.view.finalize();
-            else chart.vegaView = result.view;
+            const result = await vegaEmbed(staging, spec, { actions: false, renderer: 'svg' });
+            if (!chart.isConnected || chart.renderVersion !== version) {
+                result.view.finalize();
+                return;
+            }
+            staging.removeAttribute('style');
+            staging.removeAttribute('aria-hidden');
+            staging.removeAttribute('data-visconnect-local');
+            const previousView = chart.vegaView;
+            target.replaceWith(staging);
+            chart.vegaView = result.view;
+            chart.renderedSpec = specKey;
+            committed = true;
+            previousView?.finalize();
         } catch (error) {
             if (!chart.isConnected || chart.renderVersion !== version) return;
+            chart.requestedSpec = null;
+            if (chart.vegaView) {
+                notifyBoard(`Error rendering chart: ${error.message}`);
+                return;
+            }
             const notice = document.createElement('p');
             notice.className = 'chart-error';
             notice.textContent = `Error rendering chart: ${error.message}`;
             target.replaceChildren(notice);
+        } finally {
+            if (!committed) staging.remove();
         }
     }).catch(error => console.error('Chart rendering failed:', error));
     return chart.renderQueue;

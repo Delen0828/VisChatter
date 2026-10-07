@@ -1,6 +1,8 @@
 const apiResponseDict = {};
 const vlSpecDict = {};
 const chartComments = {};
+const removedChartComments = {};
+const chartOwners = {};
 const chartCommentGenerations = {};
 const previewedComments = {};
 const defaultAnnotations = {};
@@ -18,7 +20,21 @@ modelSelect.addEventListener('change', () => {
 
 function callApi(spec, visID) { vlSpecDict[visID] = spec; }
 function createBoardId(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
-function boardEvent(type, detail) { document.body.dispatchEvent(new CustomEvent(type, { detail })); }
+function boardActor(event) {
+    // Replayed events carry the original collaborator, including during catch-up.
+    return event?.collaboratorId || (event?.['visconnect-received'] ? null : window.vc?.ownId);
+}
+function canManageChart(visID, actor = boardActor()) {
+    return !!actor && (actor === window.vc?.leaderId || actor === chartOwners[visID]);
+}
+function boardEvent(type, detail) {
+    if (['chart-delete', 'chart-comments-clear'].includes(type) && !canManageChart(detail.visId)) {
+        notifyBoard(`Only the uploader or presenter can ${type === 'chart-delete' ? 'delete this visualization' : 'clear these comments'}.`);
+        return false;
+    }
+    document.body.dispatchEvent(new CustomEvent(type, { detail }));
+    return true;
+}
 function notifyBoard(text) {
     const notice = document.getElementById('board-notice');
     notice.textContent = text;
@@ -27,7 +43,7 @@ function notifyBoard(text) {
     notifyBoard.timer = setTimeout(() => { notice.hidden = true; }, 6000);
 }
 function updateModelStatus() {
-    const pending = Object.values(chartComments).flat().filter(comment => comment.status === 'pending').length;
+    const pending = Object.values(chartComments).flat().filter(comment => comment.status === 'pending').length + transcriptFactRequests.size;
     const status = document.getElementById('model-status');
     status.hidden = pending === 0;
     status.setAttribute('aria-busy', String(pending > 0));
@@ -44,6 +60,7 @@ document.querySelectorAll('[data-close-dialog]').forEach(button => {
     button.addEventListener('click', () => document.getElementById(button.dataset.closeDialog).close());
 });
 document.querySelectorAll('dialog').forEach(dialog => {
+    if (dialog.id === 'username-dialog') return;
     dialog.addEventListener('click', event => {
         const rect = dialog.getBoundingClientRect();
         if (event.target === dialog && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) dialog.close();
@@ -68,17 +85,17 @@ function currentChartSpec(visID) {
     if (preview === BASE_VERSION) return originalVisualizations[visID];
     return chartComments[visID]?.find(comment => comment.id === preview)?.annotatedSpec || defaultChartSpec(visID);
 }
-function updateDefaultAnnotationButtons(visID) {
+function updateDefaultAnnotationTabs(visID) {
     const selected = defaultAnnotations[visID] || latestChartAnnotation(visID)?.id || BASE_VERSION;
-    document.getElementById(visID)?.querySelectorAll('.annotation-choice').forEach(button => {
-        button.setAttribute('aria-pressed', String(button.dataset.versionId === selected));
+    document.getElementById(visID)?.querySelectorAll('.comment-item').forEach(item => {
+        item.setAttribute('aria-pressed', String(item.dataset.versionId === selected));
     });
 }
 function setDefaultAnnotation(visID, versionId) {
     if (versionId !== BASE_VERSION && !chartComments[visID]?.some(comment => comment.id === versionId && comment.annotatedSpec)) return;
     defaultAnnotations[visID] = versionId;
     showDefaultAnnotation(visID);
-    updateDefaultAnnotationButtons(visID);
+    updateDefaultAnnotationTabs(visID);
 }
 function showDefaultAnnotation(visID) {
     delete previewedComments[visID];
@@ -90,23 +107,29 @@ function previewComment(visID, comment) {
     reRenderVegaLite(currentChartSpec(visID), visID);
 }
 function addAnnotationChoice(item, visID, versionId, label, available = true) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'annotation-choice';
-    button.dataset.versionId = versionId;
-    button.disabled = !available;
-    button.setAttribute('aria-label', `Set ${label} as the default visualization`);
-    button.title = `Set ${label} as default`;
-    button.addEventListener('click', () => setDefaultAnnotation(visID, versionId));
-    item.appendChild(button);
+    item.dataset.versionId = versionId;
+    item.setAttribute('role', 'button');
+    item.setAttribute('aria-label', `Select ${label}`);
+    item.setAttribute('aria-disabled', String(!available));
+    item.addEventListener('click', () => setDefaultAnnotation(visID, versionId));
+    item.addEventListener('keydown', event => {
+        if (event.target !== item || !['Enter', ' '].includes(event.key)) return;
+        event.preventDefault();
+        setDefaultAnnotation(visID, versionId);
+    });
 }
 function addAnnotationPreview(item, visID, versionId) {
     const preview = () => previewComment(visID, { id: versionId });
+    const endPreview = event => {
+        const nextItem = event.relatedTarget?.closest('.comment-item');
+        if (nextItem && nextItem.parentElement === item.parentElement) return;
+        if (previewedComments[visID] === versionId) showDefaultAnnotation(visID);
+    };
     item.addEventListener('mouseenter', preview);
-    item.addEventListener('mouseleave', () => showDefaultAnnotation(visID));
+    item.addEventListener('mouseleave', endPreview);
     item.addEventListener('focusin', preview);
     item.addEventListener('focusout', event => {
-        if (!item.contains(event.relatedTarget)) showDefaultAnnotation(visID);
+        if (!item.contains(event.relatedTarget)) endPreview(event);
     });
 }
 function closeCommentList(chart) {
@@ -132,8 +155,19 @@ function renderChartComments(visID) {
     const comments = sortedChartComments(visID);
     const bubble = chart.querySelector('.comment-bubble');
     bubble.hidden = comments.length === 0;
-    bubble.textContent = `+${comments.length}`;
-    bubble.setAttribute('aria-label', `Show ${comments.length} comment${comments.length === 1 ? '' : 's'}`);
+    bubble.replaceChildren();
+    const authors = [...new Map(comments.map(comment => [comment.author.id, comment.author])).values()];
+    if (comments.length) {
+        const profiles = document.createElement('span');
+        profiles.className = 'comment-profiles';
+        profiles.setAttribute('aria-hidden', 'true');
+        authors.slice(0, 3).forEach(author => profiles.appendChild(createProfileAvatar(author)));
+        const count = document.createElement('span');
+        count.className = 'comment-count';
+        count.textContent = `+${comments.length}`;
+        bubble.append(profiles, count);
+    }
+    bubble.setAttribute('aria-label', `Show ${comments.length} comment${comments.length === 1 ? '' : 's'}${authors.length ? ` by ${authors.map(author => author.username).join(', ')}` : ''}`);
     const popover = chart.querySelector('.comment-popover');
     if (!comments.length) { popover.hidden = true; bubble.setAttribute('aria-expanded', 'false'); }
     const list = chart.querySelector('.comment-list');
@@ -144,9 +178,9 @@ function renderChartComments(visID) {
         base.tabIndex = 0;
         const text = document.createElement('p');
         text.className = 'comment-text';
-        text.textContent = 'Base version';
+        text.textContent = 'Original chart';
         base.appendChild(text);
-        addAnnotationChoice(base, visID, BASE_VERSION, 'base version');
+        addAnnotationChoice(base, visID, BASE_VERSION, 'Original chart');
         addAnnotationPreview(base, visID, BASE_VERSION);
         list.appendChild(base);
     }
@@ -155,46 +189,65 @@ function renderChartComments(visID) {
         item.className = 'comment-item';
         item.tabIndex = 0;
         item.dataset.commentId = comment.id;
+        item.appendChild(createProfileAvatar(comment.author));
+        const content = document.createElement('div');
+        content.className = 'comment-content';
         const text = document.createElement('p');
         text.className = 'comment-text';
         text.textContent = comment.text;
         const meta = document.createElement('div');
         meta.className = 'comment-meta';
+        const author = document.createElement('span');
+        author.className = 'comment-author';
+        author.textContent = comment.author.username;
         const time = document.createElement('time');
         time.dateTime = new Date(comment.time).toISOString();
         time.textContent = new Date(comment.time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-        meta.appendChild(time);
+        meta.append(author, time);
         if (comment.status === 'pending') {
             const label = document.createElement('span');
             label.className = 'latest-label';
             label.textContent = 'Annotating…';
             meta.appendChild(label);
         }
-        item.append(text, meta);
+        content.append(meta, text);
+        item.appendChild(content);
         if (comment.error) {
             const error = document.createElement('p');
             error.className = 'comment-error';
             error.textContent = comment.error;
-            item.appendChild(error);
+            content.appendChild(error);
         }
         addAnnotationChoice(item, visID, comment.id, `annotation: ${comment.text}`, !!comment.annotatedSpec);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'comment-remove';
+        remove.textContent = '×';
+        remove.setAttribute('aria-label', `Remove comment: ${comment.text}`);
+        remove.addEventListener('click', event => {
+            event.stopPropagation();
+            boardEvent('chart-comment-delete', { visId: visID, commentId: comment.id });
+        });
+        item.appendChild(remove);
         addAnnotationPreview(item, visID, comment.id);
         list.appendChild(item);
     }
-    updateDefaultAnnotationButtons(visID);
+    updateDefaultAnnotationTabs(visID);
 }
 document.body.addEventListener('chart-comment', event => {
     const comment = event.detail;
-    if (!document.getElementById(comment.visId)) return;
+    if (!document.getElementById(comment.visId) || removedChartComments[comment.visId]?.has(comment.id)) return;
     // Clearing invalidates pending results, including results arriving from peers.
     if (comment.generation !== (chartCommentGenerations[comment.visId] || 0)) return;
     const comments = chartComments[comment.visId] ||= [];
     const existing = comments.findIndex(entry => entry.id === comment.id);
+    const actor = boardActor(event);
+    const author = comments[existing]?.author || window.commentIdentity.authorFor(actor, comment.author);
     if (existing >= 0) {
         // A replayed pending event cannot overwrite a completed annotation.
         if (comments[existing].status !== 'pending' && comment.status === 'pending') return;
-        comments[existing] = comment;
-    } else comments.push(comment);
+        comments[existing] = { ...comment, author };
+    } else comments.push({ ...comment, author });
     const previewId = previewedComments[comment.visId];
     renderChartComments(comment.visId);
     const preview = comments.find(entry => entry.id === previewId);
@@ -301,7 +354,7 @@ document.addEventListener('click', event => {
     if (!commentEditor.hidden && !commentEditor.contains(event.target) && !chart?.contains(event.target) && !event.target.closest('#chart-menu')) closeCommentEditor();
     if (!event.target.closest('#chart-menu, .chart-menu-button')) closeChartMenu();
     document.querySelectorAll('.draggable-chart').forEach(chart => {
-        if (!chart.contains(event.target)) closeCommentList(chart);
+        if (!chart.querySelector('.comment-popover').contains(event.target) && !chart.querySelector('.comment-bubble').contains(event.target)) closeCommentList(chart);
     });
 });
 document.addEventListener('keydown', event => {
@@ -392,11 +445,121 @@ function getColumn(csvData) {
     return [rows.slice(1).map(row => row[isMulti ? 1 : 0]), rows.slice(1).map(row => row[isMulti ? 2 : 1]), isMulti ? rows.slice(1).map(row => row[0]) : 'None', isMulti];
 }
 
-// Only one microphone runs at a time. Live recording never calls the comment pipeline.
+// Only one microphone runs at a time. Final live phrases are checked once, locally.
 let speechSession = null;
 let liveFinalTranscript = '';
+let liveInterimTranscript = '';
+let transcriptVisible = true;
+const liveTranscriptPhrases = [];
+const transcriptFactRequests = new Map();
 const recordButton = document.getElementById('recordButton');
 const speechCommentButton = document.getElementById('speech-comment-button');
+
+function splitTranscriptPhrases(text) {
+    // Sentence segmentation preserves decimals and abbreviations. Semicolons and
+    // line breaks also separate clauses; an unpunctuated final result is a pause.
+    const sentences = typeof Intl.Segmenter === 'function'
+        ? [...new Intl.Segmenter('en', { granularity: 'sentence' }).segment(text)]
+        : [...text.matchAll(/[^.!?]+(?:[.!?]+|$)/g)].map(match => ({ segment: match[0], index: match.index }));
+    return sentences.flatMap(sentence => [...sentence.segment.matchAll(/[^;\n]+[;\n]*/g)].flatMap(match => {
+        const phrase = match[0].trim();
+        if (!phrase) return [];
+        const start = sentence.index + match.index + match[0].indexOf(phrase);
+        return [{ text: phrase, start, end: start + phrase.length }];
+    }));
+}
+
+function appendLiveTranscript(text) {
+    if (!text) return;
+    const offset = liveFinalTranscript.length + (liveFinalTranscript ? 1 : 0);
+    liveFinalTranscript += `${liveFinalTranscript ? ' ' : ''}${text}`;
+    for (const part of splitTranscriptPhrases(text)) {
+        const phrase = { ...part, start: offset + part.start, end: offset + part.end,
+            id: createBoardId('phrase'), isDataFact: false,
+            time: lastCommentTimestamp = Math.max(Date.now(), lastCommentTimestamp + 1) };
+        liveTranscriptPhrases.push(phrase);
+        const request = { phrase, charts: transcriptChartContext(), model: modelSelect.value,
+            controller: new AbortController(), started: false };
+        transcriptFactRequests.set(phrase.id, request);
+    }
+    updateModelStatus();
+    processTranscriptFactQueue();
+}
+
+function processTranscriptFactQueue() {
+    let running = [...transcriptFactRequests.values()].filter(request => request.started).length;
+    for (const request of transcriptFactRequests.values()) {
+        if (running >= 2) break;
+        if (request.started) continue;
+        request.started = true;
+        running++;
+        checkTranscriptPhrase(request);
+    }
+}
+
+async function checkTranscriptPhrase(request) {
+    const { phrase, model, controller } = request;
+    const isCurrent = () => transcriptFactRequests.get(phrase.id) === request;
+    try {
+        const decision = await detectTranscriptDataFact(phrase.text, request.charts, model, controller.signal);
+        if (!isCurrent()) return;
+        phrase.isDataFact = decision.isDataFact;
+        renderLiveTranscript();
+        if (decision.isDataFact) {
+            const target = request.charts.find(chart => chart.id === decision.chartId);
+            if (target && document.getElementById(target.id) && target.generation === (chartCommentGenerations[target.id] || 0)) {
+                highLight(phrase.text, target.id, target.spec, { time: phrase.time, model });
+            } else if (!request.cancelledChartIds?.has(decision.chartId)) {
+                notifyBoard('Data fact detected. No matching chart is available for its comment.');
+            }
+        }
+    } catch (error) {
+        if (error.name !== 'AbortError' && isCurrent()) {
+            notifyBoard(error.name === 'TypeError' ? 'Could not check this transcript phrase. Try recording again.' : error.message);
+        }
+    } finally {
+        if (isCurrent()) transcriptFactRequests.delete(phrase.id);
+        updateModelStatus();
+        processTranscriptFactQueue();
+    }
+}
+
+function cancelTranscriptFacts(visID) {
+    for (const [id, request] of transcriptFactRequests) {
+        if (visID !== undefined) {
+            if (!request.charts.some(chart => chart.id === visID)) continue;
+            (request.cancelledChartIds ||= new Set()).add(visID);
+            // Keep original ids for validating an in-flight response, but make
+            // cleared/deleted charts ineligible for new comments.
+            request.charts.find(chart => chart.id === visID).generation = -1;
+            if (request.charts.some(chart => chart.generation >= 0)) continue;
+        }
+        request.controller.abort();
+        transcriptFactRequests.delete(id);
+    }
+    updateModelStatus();
+    processTranscriptFactQueue();
+}
+function updateTranscriptVisibility() {
+    const available = speechSession?.mode === 'live' || !!liveFinalTranscript;
+    const visible = !!available && transcriptVisible;
+    document.getElementById('live-transcript').hidden = !available;
+    const text = document.getElementById('transcript-text');
+    text.hidden = !visible;
+    const toggle = document.getElementById('transcript-toggle');
+    toggle.hidden = !available;
+    toggle.setAttribute('aria-expanded', String(visible));
+    const label = visible ? 'Hide transcript' : 'Show transcript';
+    toggle.setAttribute('aria-label', label);
+    toggle.setAttribute('title', label);
+    if (visible) {
+        text.scrollTop = text.scrollHeight;
+    }
+}
+document.getElementById('transcript-toggle').addEventListener('click', () => {
+    transcriptVisible = !transcriptVisible;
+    updateTranscriptVisibility();
+});
 function updateSpeechControls() {
     const live = speechSession?.mode === 'live';
     const comment = speechSession?.mode === 'comment';
@@ -405,10 +568,23 @@ function updateSpeechControls() {
     document.getElementById('transcript-indicator').classList.toggle('active', !!live);
     speechCommentButton.setAttribute('aria-pressed', String(!!comment));
     speechCommentButton.textContent = comment ? 'Stop listening' : 'Speech comment';
+    updateTranscriptVisibility();
 }
-function renderLiveTranscript(interim = '') {
+function renderLiveTranscript(interim = liveInterimTranscript) {
+    liveInterimTranscript = interim;
     const text = document.getElementById('transcript-text');
-    text.replaceChildren(document.createTextNode(liveFinalTranscript));
+    text.replaceChildren();
+    let offset = 0;
+    for (const phrase of liveTranscriptPhrases) {
+        text.appendChild(document.createTextNode(liveFinalTranscript.slice(offset, phrase.start)));
+        const span = document.createElement(phrase.isDataFact ? 'mark' : 'span');
+        if (phrase.isDataFact) span.className = 'transcript-fact';
+        span.dataset.phraseId = phrase.id;
+        span.textContent = liveFinalTranscript.slice(phrase.start, phrase.end);
+        text.appendChild(span);
+        offset = phrase.end;
+    }
+    text.appendChild(document.createTextNode(liveFinalTranscript.slice(offset)));
     if (interim) {
         const span = document.createElement('span');
         span.className = 'interim';
@@ -427,8 +603,7 @@ function stopSpeechSession() {
     try { session.recognition.stop(); } catch {}
     if (session.mode === 'live') {
         document.getElementById('transcript-status').textContent = 'Transcript paused';
-        renderLiveTranscript();
-        if (!liveFinalTranscript) document.getElementById('live-transcript').hidden = true;
+        renderLiveTranscript('');
     } else setCommentStatus(commentInput.value.trim() ? 'Ready to post your comment.' : 'No speech captured. Try again or type a comment.');
     updateSpeechControls();
 }
@@ -447,9 +622,8 @@ function startSpeechSession(mode) {
     recognition.continuous = mode === 'live';
     recognition.interimResults = true;
     if (mode === 'live') {
-        document.getElementById('live-transcript').hidden = false;
-        document.getElementById('transcript-status').textContent = 'Live transcript';
-        renderLiveTranscript();
+        document.getElementById('transcript-status').textContent = 'Live Transcript';
+        renderLiveTranscript('');
     } else setCommentStatus('Listening… speak your comment, then post when ready.');
     updateSpeechControls();
     recognition.onresult = event => {
@@ -460,7 +634,7 @@ function startSpeechSession(mode) {
             const text = result[0].transcript.trim();
             if (result.isFinal && !session.committed.has(i)) {
                 session.committed.add(i);
-                if (mode === 'live') liveFinalTranscript += `${liveFinalTranscript ? ' ' : ''}${text}`;
+                if (mode === 'live') appendLiveTranscript(text);
                 else session.final += `${session.final ? ' ' : ''}${text}`;
             } else if (!result.isFinal) interim += `${interim ? ' ' : ''}${text}`;
         }
@@ -502,7 +676,7 @@ speechCommentButton.addEventListener('click', startCommentSpeech);
 recordButton.addEventListener('click', () => {
     if (speechSession?.mode === 'live') stopSpeechSession(); else startSpeechSession('live');
 });
-window.addEventListener('pagehide', stopSpeechSession);
+window.addEventListener('pagehide', () => { stopSpeechSession(); cancelTranscriptFacts(); });
 
 // Retain VisConnect's invite handler while moving its UI into the top panel.
 const shareObserver = new MutationObserver(() => {
@@ -518,8 +692,7 @@ const shareObserver = new MutationObserver(() => {
     invite.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); invite.click(); }
     });
-    document.querySelector('.visconnect-container')?.remove();
-    document.querySelector('.header-buttons').appendChild(container);
+    document.querySelector('.visconnect-container').replaceWith(container);
     shareObserver.disconnect();
 });
 shareObserver.observe(document.body, { childList: true });

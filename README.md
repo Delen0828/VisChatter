@@ -70,12 +70,14 @@ Detach with Ctrl+B, then D. The processes keep running after SSH disconnects. A 
 
 The header keeps the model selector, sharing link, and connection status. An indeterminate indicator appears while model responses are pending. Charts live on a dotted whiteboard and can be dragged to arrange them.
 
+Opening the interface or a shared link asks for a username, prefilled with **presenter** for the session owner and **audience** for a shared-link visitor. The presenter checks names before visitors join; names are unique within the session, ignoring case and surrounding spaces. Claimed names stay reserved for the session so comment history remains unambiguous. Profile icons show the username's first letter on a solid color from a fixed A–Z palette.
+
 - **Add** in the bottom toolkit opens a popup for Vega-Lite JSON, including specs with inline data.
 - Right-click a chart (or use its **···** button) for **Comment**, **Speech comment**, **Share**, **Clear all comments**, and **Delete**. Comments open in a small box beside the chart. Speech comments fill an editable draft there; choose **Post** to add the comment and generate its annotation.
-- A chart with comments shows a translucent **+X** bubble. Click it to open a compact version list above the plot. Hover or focus a comment to preview its annotation, or preview **Base version** for the original chart. The round button on the right locks that version as the default. Leaving a preview restores your selected default; until you select one, it restores the latest annotation by submission timestamp, even when AI requests finish out of order.
+- A chart with comments shows up to three distinct commenters' profile icons beside a translucent **+X** comment count. Click it to open a compact version list above the plot, with the author's icon and username beside each comment. Hover or focus a comment to preview its annotation, or preview **Original chart** for the original chart. Click a version to select it as the default. Use the small grey × on a comment to remove it. Click the comment count again or outside the panel to close it. Leaving a preview restores your selected default; until you select one, it restores the latest annotation by submission timestamp, even when AI requests finish out of order.
 - **Share** opens **Copy code to clipboard**, **Download SVG**, and **Download PNG**. All three use the visualization version selected when the actions menu opens, including the base version. Code is formatted Vega-Lite JSON; PNGs export at twice the chart's resolution.
 - **Clear** removes all charts and their comments. Clearing comments or deleting a chart cancels its pending annotation requests.
-- **Record** toggles continuous speech recognition and displays a live transcript above the toolkit. It works without selecting a chart and does not create comments or request AI annotations. The transcript stays visible when recording is paused.
+- **Record** toggles continuous speech recognition and displays a live transcript above the toolkit. Finalized speech is split into sentences and clauses at punctuation and pauses. Each phrase is checked by the selected model; data facts receive a light yellow highlight and are automatically posted as comments on the matching chart through the annotation pipeline. Other speech stays in the transcript. If no chart matches, the fact is highlighted and a notice explains why it could not be saved as a chart comment. The transcript stays visible when recording is paused, and checks for captured phrases finish in the background.
 
 Chart additions, movements, comments, and deletions use the existing collaboration connection. Comment drafts, annotation previews, default version choices, and live transcripts stay local to each browser.
 
@@ -116,4 +118,3 @@ Run `npm test` for whiteboard checks covering comment ordering, annotation previ
 `Analyze/Formative` contains all the code and raw data used for the second formative study.
 
 `Analyze/Test` contains all the code used for comparing the performance between GPT-4-turbo and fine-tuned llama-3-8b.
-
