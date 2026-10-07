@@ -18,3 +18,12 @@ test('rejects invalid output before applying a chart annotation', () => {
     assert.throws(() => context.parseTaskResponse(text), /invalid annotation/);
   }
 });
+
+test('trend responses can include one series only for a chart with series encodings', () => {
+  for (const task of ['TREND^', 'TREND-', 'TRENDv']) {
+    const response = JSON.stringify([task, '2013', '2018', 'Small']);
+    assert.deepEqual(Array.from(context.parseTaskResponse(response, true)), [task, '2013', '2018', 'Small']);
+    assert.throws(() => context.parseTaskResponse(response), /invalid annotation/);
+    assert.throws(() => context.parseTaskResponse(JSON.stringify([task, '2013', '2018', 'Small', 'Minicar']), true), /invalid annotation/);
+  }
+});

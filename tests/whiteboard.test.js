@@ -739,6 +739,128 @@ test('a standard bar spec without an explicit color can still receive an annotat
     assert.equal(vm.runInContext("JSON.parse(vlSpecDict['vis-test']).encoding.color", context), undefined);
 });
 
+test('a Small-car trend annotates only 2013–2018 using the encoded fields and preserves chart colors', async () => {
+    const { context, addChart } = setup();
+    addChart();
+    const spec = JSON.parse(await readFile(new URL('../data/example-2.json', import.meta.url), 'utf8'));
+    context.spec = spec;
+    let prompt;
+    context.fetch = async (_url, options) => {
+        prompt = JSON.parse(options.body);
+        return { ok: true, json: async () => ({ choices: [{ message: { content: '["TREND^", "2013", "2018", "Small"]' } }] }) };
+    };
+    await vm.runInContext("highLight('Small cars have increasing trend from 2013 to 2018', 'vis-test', spec)", context);
+    const comment = vm.runInContext("chartComments['vis-test'][0]", context);
+    assert.equal(comment.status, 'ready', comment.error);
+    assert.match(prompt.messages[1].content, /Car type/);
+    const highlighted = comment.annotatedSpec.layer[1];
+    const matches = matchesLineFilter(highlighted, spec.data.values);
+    assert.deepEqual(matches.map(row => [row.Year, row['Car type']]), [2013, 2014, 2015, 2016, 2017, 2018].map(year => [year, 'Small']));
+    assert.deepEqual(JSON.parse(JSON.stringify(highlighted.encoding.color)), spec.encoding.color);
+    const arrow = comment.annotatedSpec.layer[2];
+    const anchors = matchesLineFilter(arrow, spec.data.values);
+    assert.deepEqual(anchors.map(row => [row.Year, row['Car type']]), [[2015, 'Small']]);
+    assert.equal(arrow.mark.angle, -45);
+    assert.equal(spec.mark.type, 'line');
+});
+
+function matchesLineFilter(layer, rows) {
+    return rows.filter(datum => vm.runInNewContext(layer.transform[0].filter, {
+        datum, toNumber: Number, toString: String, toDate: value => new Date(value), time: value => +value, indexof: (values, value) => values.indexOf(value)
+    }));
+}
+
+test('single-series trends honor bounds despite metadata columns, reversed endpoints, and unordered numeric rows', async () => {
+    const { context, addChart } = setup();
+    addChart();
+    const rows = [12, 9, 11, 10].map(year => ({ metadata: 'Published', value: year * 2, 'Fiscal year': year }));
+    context.spec = {
+        data: { values: rows }, mark: 'line',
+        encoding: { x: { field: 'Fiscal year', type: 'quantitative' }, y: { field: 'value', type: 'quantitative' } }
+    };
+    context.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: '["TRENDv", "11", "9"]' } }] }) });
+    await vm.runInContext("highLight('Decreasing from 11 to 9', 'vis-test', spec)", context);
+    const comment = vm.runInContext("chartComments['vis-test'][0]", context);
+    assert.equal(comment.status, 'ready', comment.error);
+    assert.deepEqual(matchesLineFilter(comment.annotatedSpec.layer[1], rows).map(row => row['Fiscal year']).sort((a, b) => a - b), [9, 10, 11]);
+    assert.deepEqual(matchesLineFilter(comment.annotatedSpec.layer[2], rows).map(row => row['Fiscal year']), [10]);
+    assert.equal(comment.annotatedSpec.layer[2].mark.angle, 45);
+});
+
+test('temporal trends work with arbitrary field names and keep the original date scales', async () => {
+    const { context, addChart } = setup();
+    addChart();
+    const rows = ['2024-01-01', '2024-02-01', '2024-03-01', '2024-04-01'].map(date => ({ 'Reported on': date, value: 2 }));
+    const x = { field: 'Reported on', type: 'temporal', axis: { format: '%b' } };
+    context.spec = { data: { values: rows }, mark: 'line', encoding: { x, y: { field: 'value', type: 'quantitative' } } };
+    context.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: '["TREND-", "2024-02-01", "2024-04-01"]' } }] }) });
+    await vm.runInContext("highLight('Stable from February to April', 'vis-test', spec)", context);
+    const comment = vm.runInContext("chartComments['vis-test'][0]", context);
+    assert.equal(comment.status, 'ready', comment.error);
+    assert.deepEqual(matchesLineFilter(comment.annotatedSpec.layer[1], rows).map(row => row['Reported on']), ['2024-02-01', '2024-03-01', '2024-04-01']);
+    assert.deepEqual(matchesLineFilter(comment.annotatedSpec.layer[2], rows).map(row => row['Reported on']), ['2024-03-01']);
+    assert.deepEqual(JSON.parse(JSON.stringify(comment.annotatedSpec.layer[2].encoding.x)), x);
+    assert.equal(comment.annotatedSpec.layer[2].mark.angle, 0);
+});
+
+test('ordinal trends match numeric categories in the inline dataset', async () => {
+    const { context, addChart } = setup();
+    addChart();
+    const rows = [2013, 2014, 2015, 2016].map(year => ({ year, value: 2 }));
+    context.spec = { data: { values: rows }, mark: 'line', encoding: { x: { field: 'year', type: 'ordinal' }, y: { field: 'value', type: 'quantitative' } } };
+    context.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: '["TREND^", "2013", "2015"]' } }] }) });
+    await vm.runInContext("highLight('Increasing from 2013 to 2015', 'vis-test', spec)", context);
+    const comment = vm.runInContext("chartComments['vis-test'][0]", context);
+    assert.equal(comment.status, 'ready', comment.error);
+    assert.deepEqual(matchesLineFilter(comment.annotatedSpec.layer[1], rows).map(row => row.year), [2013, 2014, 2015]);
+    assert.deepEqual(matchesLineFilter(comment.annotatedSpec.layer[2], rows).map(row => row.year), [2014]);
+});
+
+test('retrieving or comparing line endpoints uses a detail series field and safely handles apostrophes', async () => {
+    for (const taskList of [['RETRIEVE', '12', "O'Brien"], ['COMPARE', '9', '12', "O'Brien", 'Other']]) {
+        const { context, addChart } = setup();
+        addChart();
+        const rows = ["O'Brien", 'Other'].flatMap(series => [12, 9, 11, 10].map(year => ({ value: year, year, "Owner's category": series })));
+        context.spec = {
+            data: { values: rows }, mark: 'line',
+            encoding: { x: { field: 'year', type: 'quantitative' }, y: { field: 'value', type: 'quantitative' }, detail: { field: "Owner's category", type: 'nominal' } }
+        };
+        context.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(taskList) } }] }) });
+        await vm.runInContext("highLight('Compare endpoints', 'vis-test', spec)", context);
+        const comment = vm.runInContext("chartComments['vis-test'][0]", context);
+        assert.equal(comment.status, 'ready', comment.error);
+        const selected = matchesLineFilter(comment.annotatedSpec.layer[1], rows);
+        assert.deepEqual(selected.map(row => row.year).sort((a, b) => a - b), taskList[0] === 'RETRIEVE' ? [11, 12] : [9, 10]);
+        assert.ok(selected.every(row => row["Owner's category"] === "O'Brien"));
+        if (taskList[0] === 'COMPARE') {
+            const second = matchesLineFilter(comment.annotatedSpec.layer[2], rows);
+            assert.deepEqual(second.map(row => row.year).sort((a, b) => a - b), [11, 12]);
+            assert.ok(second.every(row => row["Owner's category"] === 'Other'));
+        }
+    }
+});
+
+test('trends without a series apply their supplied range to every line, while unknown series report an error', async () => {
+    for (const series of [undefined, 'Unknown']) {
+        const { context, addChart } = setup();
+        addChart();
+        const spec = JSON.parse(await readFile(new URL('../data/example-2.json', import.meta.url), 'utf8'));
+        context.spec = spec;
+        const taskList = ['TREND^', '2016', '2018', ...(series ? [series] : [])];
+        context.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(taskList) } }] }) });
+        await vm.runInContext("highLight('Increasing from 2016 to 2018', 'vis-test', spec)", context);
+        const comment = vm.runInContext("chartComments['vis-test'][0]", context);
+        if (series) {
+            assert.equal(comment.status, 'error');
+            assert.match(comment.error, /selected series could not be found/);
+        } else {
+            assert.equal(comment.status, 'ready', comment.error);
+            assert.equal(matchesLineFilter(comment.annotatedSpec.layer[1], spec.data.values).length, 6);
+            assert.deepEqual(matchesLineFilter(comment.annotatedSpec.layer[2], spec.data.values).map(row => [row.Year, row['Car type']]), [[2017, 'Small'], [2017, 'Minicar']]);
+        }
+    }
+});
+
 test('local controls register immediately while shared listeners wait for VisConnect initialization', async () => {
     const bundle = await readFile(new URL('../src/visconnect-bundle.js', import.meta.url), 'utf8');
     const source = bundle.slice(bundle.indexOf('function delayAddEventListener()'), bundle.indexOf('function disableStopPropagation()'));

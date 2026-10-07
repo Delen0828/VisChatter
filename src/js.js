@@ -441,10 +441,20 @@ document.getElementById('comment-form').addEventListener('submit', event => {
     closeCommentEditor(true);
 });
 
-function getColumn(csvData) {
+function getColumn(csvData, spec) {
     const rows = d3.csvParseRows(csvData).filter(row => row.some(value => value !== ''));
-    const isMulti = rows[0].length > 2;
-    return [rows.slice(1).map(row => row[isMulti ? 1 : 0]), rows.slice(1).map(row => row[isMulti ? 2 : 1]), isMulti ? rows.slice(1).map(row => row[0]) : 'None', isMulti];
+    const [mainField, , subField] = getMainSubFieldType(spec);
+    const seriesField = getLineSeriesField(spec);
+    const headers = rows[0] || [];
+    const mainIndex = headers.indexOf(mainField);
+    const subIndex = headers.indexOf(subField);
+    const seriesIndex = headers.indexOf(seriesField);
+    if (mainIndex < 0 || subIndex < 0 || (seriesField && seriesIndex < 0)) {
+        throw new Error('Comment saved. The encoded chart fields could not be found in the data.');
+    }
+    const values = rows.slice(1);
+    return [values.map(row => row[mainIndex]), values.map(row => row[subIndex]),
+        seriesField ? values.map(row => row[seriesIndex]) : 'None', !!seriesField];
 }
 
 // Only one microphone runs at a time. Final live phrases are checked once, locally.

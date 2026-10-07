@@ -4,7 +4,10 @@ function getMainSubFieldType(jsonObject) {
 	// console.log('getMainSubFieldType', jsonObject)
 	// console.log(jsonObject['config'])
 	const encoding = jsonObject['encoding'];
-	console.log('encoding', encoding)
+	const markType = typeof jsonObject.mark === 'string' ? jsonObject.mark : jsonObject.mark?.type;
+	if (markType === 'line' || markType === 'area') {
+		return [encoding.x.field, encoding.x.type, encoding.y.field, encoding.y.type];
+	}
 	if (encoding['x'].type === 'nominal' || encoding['x'].type === 'temporal') {
 		return [encoding['x'].field, encoding['x'].type, encoding['y'].field, encoding['y'].type];
 	}
@@ -115,167 +118,99 @@ function biggerOf(a, b) {
 	return a > b ? a : b;
 }
 
-function fixIndex(index, valuelist) {
-	if (index >= valuelist.length - 2) { return valuelist.length - 4 }
-	else { return index }
+function getLineSeriesField(spec) {
+    const markType = typeof spec.mark === 'string' ? spec.mark : spec.mark?.type;
+    if (markType !== 'line' && markType !== 'area') return undefined;
+    const detail = spec.encoding?.detail;
+    return spec.encoding?.color?.field || (Array.isArray(detail) ? detail[0]?.field : detail?.field);
 }
 
-function getListSelected(csvData, legend) {
-	console.log(csvData)
-	let rows = csvData.split('\n');
-	let xList = [];
-	let yList = [];
-	for (let i = 0; i < rows.length; i++) {
-		let columns = rows[i].split(',');
-		if (columns[0] == legend) {
-			xList.push(columns[1]);
-			yList.push(columns[2]);
-		}
-	}
-	return [xList, yList]
+function getListSelected(csvData, legend, mainField, legendField, subField) {
+    const [headers = [], ...rows] = d3.csvParseRows(csvData);
+    const mainIndex = headers.indexOf(mainField);
+    const seriesIndex = headers.indexOf(legendField);
+    const subIndex = headers.indexOf(subField);
+    const selected = rows.filter(row => row[seriesIndex] === legend);
+    if (mainIndex < 0 || seriesIndex < 0 || !selected.length) {
+        throw new Error('Comment saved. The selected series could not be found in the chart data.');
+    }
+    return [selected.map(row => row[mainIndex]), selected.map(row => row[subIndex])];
 }
 
-function lineHighlightOne(vega, mainField, mainType, value, valuelist, isMulti = false, legend = 'None', legendField = 'None', csvData) {
-	vega["layer"] = [{ 'mark': vega['mark'], 'encoding': vega['encoding'] }]
-	let new_layer = JSON.parse(JSON.stringify(vega["layer"][0]));
-
-	// console.log(valuelist)
-	// console.log(index, valuelist[index])
-	vega["layer"][0]["encoding"]["opacity"] = { "value": 0.4 }
-	if (isMulti == true) {
-		let valuelist = getListSelected(csvData, legend)[0]
-		let index = fixIndex(valuelist.indexOf(value), valuelist)
-		if (mainType === 'temporal') {
-			// vega["data"]["format"] = { "type": "csv", "parse": { [mainField]: `date:'%${time_format[mainField]}'` } };
-			new_layer["transform"] = [{
-				"filter": `${normalize[mainField]}(toDate(datum['${mainField}'])) >= ${normalize[mainField]}(toDate('${smallerOf(valuelist[index + 1], valuelist[index])}')) && ${normalize[mainField]}(toDate(datum['${mainField}'])) <= ${normalize[mainField]}(toDate('${biggerOf(valuelist[index], valuelist[index + 1])}')) && datum['${legendField}']=='${legend}'`
-			}]
-		} else {
-			new_layer["transform"] = [{
-				"filter": `${mainField}(datum['${mainField}']) >= ${smallerOf(valuelist[index + 1], valuelist[index])} && ${mainField}(datum['${mainField}']) <= ${biggerOf(valuelist[index], valuelist[index + 1])} && datum['${legendField}']=='${legend}'`
-			}]
-		}
-	}
-	else {
-		let index = fixIndex(valuelist.indexOf(value), valuelist)
-		if (mainType === 'temporal') {
-			// vega["data"]["format"] = { "type": "csv", "parse": { [mainField]: `date:'%${time_format[mainField]}'` } };
-			new_layer["transform"] = [{
-				"filter": `${normalize[mainField]}(toDate(datum['${mainField}'])) >= ${normalize[mainField]}(toDate('${smallerOf(valuelist[index + 1], valuelist[index])}')) && ${normalize[mainField]}(toDate(datum['${mainField}'])) <= ${normalize[mainField]}(toDate('${biggerOf(valuelist[index], valuelist[index + 1])}'))`
-			}]
-		} else {
-			new_layer["transform"] = [{ "filter": `${mainField}(datum['${mainField}']) >= ${smallerOf(valuelist[index + 1], valuelist[index])} && ${mainField}(datum['${mainField}']) <= ${biggerOf(valuelist[index], valuelist[index + 1])}` }]
-		}
-	}
-	new_layer["encoding"]["opacity"] = { "value": 1 }
-	vega["layer"].push(new_layer)
-	delete vega['mark']
-	delete vega['encoding']
-	return vega;
-}
-// fetch('https://raw.githubusercontent.com/vega/vega-datasets/main/data/stocks.csv')
-// 	.then(response => response.text())
-// 	.then(csvText => {
-// 		// Split the CSV into rows
-// 		const rows = csvText.split('\n');
-
-// 		// Extract the header (first row) and the rest of the rows
-// 		const headers = rows[0].split(',');
-// 		const dateIndex = headers.indexOf('date');
-
-// 		// Extract the "date" column
-// 		const dates = rows.slice(1) // Skip the header row
-// 			.filter(row => row.trim() !== '') // Remove empty rows
-// 			.map(row => row.split(',')[dateIndex]); // Get the date from each row
-// 		outPut = JSON.stringify(lineHighlightOne(testVega, "date", "price", "temporal", "quantitative", 'Jan 1 2008', dates, isMulti = true, legend = 'GOOG', legendField = 'symbol'))
-// 		console.log('done')
-// 	})
-
-
-function lineCompareTwo(vega, mainField, mainType, value1, value2, valuelist, isMulti = false, legend1 = 'None', legend2 = 'None', legendField = 'None', csvData) {
-	vega["layer"] = [{ 'mark': vega['mark'], 'encoding': vega['encoding'] }]
-	// var newcolor = getOppositeColor(vega["encoding"]["color"]["value"]);
-	vega["layer"][0]["encoding"]["opacity"] = { "value": 0.4 }
-	let new_layer = JSON.parse(JSON.stringify(vega["layer"][0]));
-	if (isMulti == true) {
-		let valuelist = getListSelected(csvData, legend1)[0]
-		let index = fixIndex(valuelist.indexOf(value1), valuelist)
-		if (mainType === 'temporal') {
-			new_layer["transform"] = [{
-				"filter": `${normalize[mainField]}(toDate(datum['${mainField}'])) >= ${normalize[mainField]}(toDate('${smallerOf(valuelist[index + 1], valuelist[index])}')) && ${normalize[mainField]}(toDate(datum['${mainField}'])) <= ${normalize[mainField]}(toDate('${biggerOf(valuelist[index], valuelist[index + 1])}')) && datum['${legendField}']=='${legend1}'`
-			}]
-		} else {
-			new_layer["transform"] = [{
-				"filter": `${mainField}(datum['${mainField}']) >= ${smallerOf(valuelist[index + 1], valuelist[index])} && ${mainField}(datum['${mainField}']) <= ${biggerOf(valuelist[index], valuelist[index + 1])} && datum['${legendField}']=='${legend1}'`
-			}]
-		}
-	}
-	else {
-		let index = fixIndex(valuelist.indexOf(value1), valuelist)
-		console.log(valuelist[index])
-		if (mainType === 'temporal') {
-			// vega["data"]["format"] = { "type": "csv", "parse": { [mainField]: `date:'%${time_format[mainField]}'` } };
-			new_layer["transform"] = [{
-				"filter": `${normalize[mainField]}(toDate(datum['${mainField}'])) >= ${normalize[mainField]}(toDate('${smallerOf(valuelist[index + 1], valuelist[index])}')) && ${normalize[mainField]}(toDate(datum['${mainField}'])) <= ${normalize[mainField]}(toDate('${biggerOf(valuelist[index], valuelist[index + 1])}'))`
-			}]
-		} else {
-			new_layer["transform"] = [{ "filter": `${mainField}(datum['${mainField}']) >= ${smallerOf(valuelist[index + 1], valuelist[index])} && ${mainField}(datum['${mainField}']) <= ${biggerOf(valuelist[index], valuelist[index + 1])}` }]
-		}
-	}
-
-	new_layer["encoding"]["opacity"] = { "value": 1 }
-	vega["layer"].push(new_layer)
-
-	let newnew_layer = JSON.parse(JSON.stringify(vega["layer"][0]));
-	if (isMulti == true) {
-		let valuelist = getListSelected(csvData, legend2)[0]
-		let newindex = fixIndex(valuelist.indexOf(value2), valuelist)
-		if (mainType === 'temporal') {
-			// vega["data"]["format"] = { "type": "csv", "parse": { [mainField]: `date:'%${time_format[mainField]}'` } };
-			newnew_layer["transform"] = [{
-				"filter": `${normalize[mainField]}(toDate(datum['${mainField}'])) >= ${normalize[mainField]}(toDate('${smallerOf(valuelist[newindex + 1], valuelist[newindex])}')) && ${normalize[mainField]}(toDate(datum['${mainField}'])) <= ${normalize[mainField]}(toDate('${biggerOf(valuelist[newindex], valuelist[newindex + 1])}')) && datum['${legendField}']=='${legend2}'`
-			}]
-		} else {
-			newnew_layer["transform"] = [{
-				"filter": `${mainField}(datum['${mainField}']) >= ${smallerOf(valuelist[newindex + 1], valuelist[newindex])} && ${mainField}(datum['${mainField}']) <= ${biggerOf(valuelist[newindex], valuelist[newindex + 1])} && datum['${legendField}']=='${legend2}'`
-			}]
-		}
-	}
-	else {
-		let newindex = fixIndex(valuelist.indexOf(value2), valuelist)		
-		if (mainType === 'temporal') {
-			// vega["data"]["format"] = { "type": "csv", "parse": { [mainField]: `date:'%${time_format[mainField]}'` } };
-			newnew_layer["transform"] = [{
-				"filter": `${normalize[mainField]}(toDate(datum['${mainField}'])) >= ${normalize[mainField]}(toDate('${smallerOf(valuelist[newindex + 1], valuelist[newindex])}')) && ${normalize[mainField]}(toDate(datum['${mainField}'])) <= ${normalize[mainField]}(toDate('${biggerOf(valuelist[newindex], valuelist[newindex + 1])}'))`
-			}]
-		} else {
-			newnew_layer["transform"] = [{ "filter": `${mainField}(datum['${mainField}']) >= ${smallerOf(valuelist[newindex + 1], valuelist[newindex])} && ${mainField}(datum['${mainField}']) <= ${biggerOf(valuelist[newindex], valuelist[newindex + 1])}` }]
-		}
-	}
-	newnew_layer["encoding"]["opacity"] = { "value": 1 }
-	vega["layer"].push(newnew_layer)
-	delete vega['mark']
-	delete vega['encoding']
-	return vega;
+function lineComparable(value, type) {
+    const result = type === 'quantitative' ? Number(value) : type === 'temporal' ? Date.parse(String(value)) : String(value);
+    if (typeof result === 'number' && !Number.isFinite(result)) {
+        throw new Error('Comment saved. The selected axis value could not be read.');
+    }
+    return result;
 }
 
-// fetch('https://raw.githubusercontent.com/vega/vega-datasets/main/data/stocks.csv')
-// 	.then(response => response.text())
-// 	.then(csvText => {
-// 		// Split the CSV into rows
-// 		const rows = csvText.split('\n');
+function orderedLineValues(values, type) {
+    const unique = [...new Set(values.map(String))];
+    return type === 'quantitative' || type === 'temporal'
+        ? unique.sort((a, b) => lineComparable(a, type) - lineComparable(b, type))
+        : unique;
+}
 
-// 		// Extract the header (first row) and the rest of the rows
-// 		const headers = rows[0].split(',');
-// 		const dateIndex = headers.indexOf('date');
+function lineDatumExpression(field, type) {
+    const datum = `datum[${JSON.stringify(field)}]`;
+    if (type === 'quantitative') return `toNumber(${datum})`;
+    if (type === 'temporal') return `time(toDate(${datum}))`;
+    return `toString(${datum})`;
+}
 
-// 		// Extract the "date" column
-// 		const dates = rows.slice(1) // Skip the header row
-// 			.filter(row => row.trim() !== '') // Remove empty rows
-// 			.map(row => row.split(',')[dateIndex]); // Get the date from each row
-// 		outPut = JSON.stringify(lineCompareTwo(testVega, "date", "price", "temporal", "quantitative", dates, isMulti = true, legend1 = 'GOOG', legend2 = 'AAPL', legendField = 'symbol'))
-// 		console.log('done')
-// 	})
+function lineSeriesFilter(legend, legendField) {
+    return legend !== 'None' && legendField
+        ? ` && toString(datum[${JSON.stringify(legendField)}]) === ${JSON.stringify(legend)}` : '';
+}
+
+function lineRangeFilter(field, type, value1, value2, values, legend, legendField) {
+    const expression = lineDatumExpression(field, type);
+    let filter;
+    if (type === 'quantitative' || type === 'temporal') {
+        const bounds = [lineComparable(value1, type), lineComparable(value2, type)].sort((a, b) => a - b);
+        filter = `${expression} >= ${bounds[0]} && ${expression} <= ${bounds[1]}`;
+    } else {
+        const indices = [values.indexOf(String(value1)), values.indexOf(String(value2))].sort((a, b) => a - b);
+        if (indices[0] < 0) throw new Error('Comment saved. The selected axis value could not be found in the chart data.');
+        filter = `indexof(${JSON.stringify(values.slice(indices[0], indices[1] + 1))}, ${expression}) >= 0`;
+    }
+    return filter + lineSeriesFilter(legend, legendField);
+}
+
+function addLineHighlightLayers(vega, filters) {
+    const base = { mark: vega.mark, encoding: JSON.parse(JSON.stringify(vega.encoding)) };
+    vega.layer = [base, ...filters.map(filter => ({
+        mark: JSON.parse(JSON.stringify(base.mark)),
+        encoding: { ...JSON.parse(JSON.stringify(base.encoding)), opacity: { value: 1 } },
+        transform: [{ filter }]
+    }))];
+    base.encoding.opacity = { value: 0.4 };
+    delete vega.mark;
+    delete vega.encoding;
+    return vega;
+}
+
+function linePointFilter(mainField, mainType, value, valuelist, isMulti, legend, legendField, csvData) {
+    const values = orderedLineValues(isMulti && legend !== 'None'
+        ? getListSelected(csvData, legend, mainField, legendField)[0] : valuelist, mainType);
+    const index = values.findIndex(candidate => lineComparable(candidate, mainType) === lineComparable(value, mainType));
+    if (index < 0) throw new Error('Comment saved. The selected axis value could not be found in the chart data.');
+    // Highlight the adjoining segment, including the actual last point at the end of a line.
+    const start = Math.min(index, Math.max(0, values.length - 2));
+    return lineRangeFilter(mainField, mainType, values[start], values[Math.min(start + 1, values.length - 1)], values, legend, legendField);
+}
+
+function lineHighlightOne(vega, mainField, mainType, value, valuelist, isMulti = false, legend = 'None', legendField, csvData) {
+    return addLineHighlightLayers(vega, [linePointFilter(mainField, mainType, value, valuelist, isMulti, legend, legendField, csvData)]);
+}
+
+function lineCompareTwo(vega, mainField, mainType, value1, value2, valuelist, isMulti = false, legend1 = 'None', legend2 = 'None', legendField, csvData) {
+    return addLineHighlightLayers(vega, [
+        linePointFilter(mainField, mainType, value1, valuelist, isMulti, legend1, legendField, csvData),
+        linePointFilter(mainField, mainType, value2, valuelist, isMulti, legend2, legendField, csvData)
+    ]);
+}
 
 function lineThreshold(vega, mainType, subType, value, xList, yList, csvData) {
 	// let newcolor = getOppositeColor(vega["encoding"]["color"]["value"])
@@ -297,70 +232,35 @@ function lineThreshold(vega, mainType, subType, value, xList, yList, csvData) {
 	return vega;
 }
 // outPut2 = JSON.stringify(lineThreshold(testVega, 'temporal', 'quantitative', 100, [2019, 2018, 2016, 2015, 2014, 2013, 2012, 2011, 2010, 2009, 2008, 2007, 2006], [102.35, 100.26, 92.98, 85.83, 84.43, 81.54, 78.38, 77.34, 76.47, 74.99, 72.2, 67.11, 62.38]))
-function getMidPoint(value1, value2, xList) {
-	let filterXList = [value1, value2]
-	let valuelist = xList
-	let indexList = filterXList.map(element => valuelist.indexOf(element));
-	if (value1 !== -1 && value2 === -1) { return valuelist[indexList[0]] }
-	else {
-		if (value1 === -1 && value2 !== -1) { return valuelist[indexList[1]] }
-		else {
-			if (value1 !== -1 && value2 !== -1) {
-				let midPointIndex = Math.floor((indexList[0] + indexList[1]) / 2)
-				return valuelist[midPointIndex]
-			}
-			else {
-				let midPointIndex = Math.floor(valuelist.length / 2)
-				return valuelist[midPointIndex]
-			}
-		}
-	}
-}
-
 function getAngle(trend) {
-	if (trend == "TREND^") { return -45 }
-	if (trend == "TREND-") { return 0 }
-	if (trend == "TRENDv") { return 45 }
-	console.log('trend', trend)
-	return 0
-
-}
-function lineTrend(vega, trend, mainField, subField, mainType, subType, xList = [], value1 = -1, value2 = -1, legend = 'None', legendField = 'None', csvData) {
-	// console.log(trend)
-	let angle = getAngle(trend)
-	let midPoint = getMidPoint(value1, value2,xList)
-	vega["layer"] = [{ 'mark': vega['mark'], 'encoding': vega['encoding'] }];
-	if (legend === 'None') {
-		let newLayer = {
-			"mark": { "type": "text", "filled": true, "angle": angle, "fontSize": 24, 'dy': -10 },
-			"transform": [{ "filter": `${normalize[mainField]}(datum['${mainField}']) == ${normalize[mainField]}(toDate('${midPoint}'))` }],
-			"encoding": {
-				"text": { "value": "→" },
-				// "color": { "value": 'black' },
-				"x": { "type": mainType, "field": mainField },
-				"y": { "type": subType, "field": subField }
-			}
-		}
-		vega["layer"].push(newLayer);
-	}
-	else {
-		let newLayer = {
-			"mark": { "type": "text", "filled": true, "angle": angle, "fontSize": 24, 'dy': -10 },
-			"transform": [{ "filter": `${normalize[mainField]}(datum['${mainField}']) == ${normalize[mainField]}(toDate('${midPoint}')) && datum['${legendField}']=='${legend}'` }],
-			"encoding": {
-				"text": { "value": "→" },
-				// "color": { "value": 'black' },
-				"x": { "type": mainType, "field": mainField },
-				"y": { "type": subType, "field": subField }
-			}
-		}
-		vega["layer"].push(newLayer);
-	}
-	delete vega['mark']
-	delete vega['encoding']
-	return vega;
+    return { 'TREND^': -45, 'TREND-': 0, TRENDv: 45 }[trend] ?? 0;
 }
 
+function lineTrend(vega, trend, mainField, subField, mainType, subType, xList = [], value1 = -1, value2 = -1, legend = 'None', legendField, csvData) {
+    const values = orderedLineValues(legend !== 'None' && legendField
+        ? getListSelected(csvData, legend, mainField, legendField, subField)[0] : xList, mainType);
+    const start = value1 === -1 ? values[0] : value1;
+    const end = value2 === -1 ? values[values.length - 1] : value2;
+    const numericAxis = mainType === 'quantitative' || mainType === 'temporal';
+    const bounds = (numericAxis
+        ? [lineComparable(start, mainType), lineComparable(end, mainType)]
+        : [values.indexOf(String(start)), values.indexOf(String(end))]).sort((a, b) => a - b);
+    const selected = values.filter((value, index) => {
+        const comparable = numericAxis ? lineComparable(value, mainType) : index;
+        return comparable >= bounds[0] && comparable <= bounds[1];
+    });
+    if (!selected.length) throw new Error('Comment saved. No chart data matches the selected trend range.');
+    const midPoint = selected[Math.floor((selected.length - 1) / 2)];
+    const filter = lineRangeFilter(mainField, mainType, start, end, values, legend, legendField);
+    addLineHighlightLayers(vega, [filter]);
+    // Reuse the original encodings so the arrow shares the line's scales and series color.
+    vega.layer.push({
+        mark: { type: 'text', angle: getAngle(trend), fontSize: 24, dy: -10 },
+        transform: [{ filter: `${lineDatumExpression(mainField, mainType)} === ${JSON.stringify(lineComparable(midPoint, mainType))}${lineSeriesFilter(legend, legendField)}` }],
+        encoding: { ...JSON.parse(JSON.stringify(vega.layer[1].encoding)), text: { value: '→' } }
+    });
+    return vega;
+}
 
 function lineRange(vega, mainField, mainType, subType, value1, value2, xList, yList, isMulti = false, csvData) {
 	vega["layer"] = [{ 'mark': vega['mark'], 'encoding': vega['encoding'] }]

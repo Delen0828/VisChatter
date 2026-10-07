@@ -132,7 +132,6 @@ document.body.addEventListener('vl-spec', event => {
 });
 
 function highLightHelper(visID, task, vega, mainField, subField, mainType, subType, newList, xList, yList, taskList, legendList, isMulti, csvData) {
-	console.log('newList',newList)
 	let newVega;
 	const markType = typeof vega.mark === 'string' ? vega.mark : vega.mark?.type;
 	
@@ -154,49 +153,21 @@ function highLightHelper(visID, task, vega, mainField, subField, mainType, subTy
 		}
 	}
 	if (markType == 'line' || markType == 'area') {
-		if (isMulti) {
-			if (task == 'RETRIEVE') {
-				newVega = lineHighlightOne(vega, mainField, mainType, newList[0], xList, isMulti, taskList[2], 'symbol', csvData); //TODO:change this to retrieval
-			}
-			if (task == 'COMPARE') {
-				newVega = lineCompareTwo(vega, mainField, mainType, newList[0], newList[1], xList, isMulti, taskList[3], taskList[4], 'symbol', csvData);
-			}
-			if (task == 'FILTER') {
-				newVega = lineThreshold(vega, mainType, subType, newList[0], xList, yList, csvData);
-			}
-			if (task == 'TREND-' || task == 'TRENDv' || task == 'TREND^') {
-				if (newList.length >= 3) {
-					newVega = lineTrend(vega, taskList[0], mainField, subField, mainType, subType, xList, newList[0], newList[1], taskList[2], csvData);
-				}
-				else {
-					newVega = lineTrend(vega, taskList[0], mainField, subField, mainType, subType, xList, value1 = -1, value2 = -1, taskList[2], 'symbol', csvData);
-				}
-			}
-			if (task == 'RANGE') {
-				newVega = lineRange(vega, mainField,mainType, subType, taskList[1], taskList[2], xList, yList, isMulti, csvData);
-			}
+		const legendField = getLineSeriesField(vega);
+		if (task == 'RETRIEVE') {
+			newVega = lineHighlightOne(vega, mainField, mainType, newList[0], xList, isMulti, newList[1], legendField, csvData);
 		}
-		else {
-			if (task == 'RETRIEVE') {
-				newVega = lineHighlightOne(vega, mainField, mainType, newList[0], xList);
-			}
-			if (task == 'COMPARE') {
-				newVega = lineCompareTwo(vega, mainField, mainType, newList[0], newList[1], xList);
-			}
-			if (task == 'FILTER') {
-				newVega = lineThreshold(vega, mainType, subType, newList[0], xList, yList);
-			}
-			if (task == 'TREND-' || task == 'TRENDv' || task == 'TREND^') {
-				if (newList.length >= 3) {
-					newVega = lineTrend(vega, taskList[0], mainField, subField, mainType, subType, xList, newList[1], newList[2]);
-				}
-				else {
-					newVega = lineTrend(vega, taskList[0], mainField, subField, mainType, subType, xList);
-				}
-			}
-			if (task == 'RANGE') {
-				newVega = lineRange(vega, mainField,mainType,subType, taskList[1], taskList[2], xList, yList);
-			}
+		if (task == 'COMPARE') {
+			newVega = lineCompareTwo(vega, mainField, mainType, newList[0], newList[1], xList, isMulti, newList[2], newList[3] || newList[2], legendField, csvData);
+		}
+		if (task == 'FILTER') {
+			newVega = lineThreshold(vega, mainType, subType, newList[0], xList, yList, csvData);
+		}
+		if (task == 'TREND-' || task == 'TRENDv' || task == 'TREND^') {
+			newVega = lineTrend(vega, task, mainField, subField, mainType, subType, xList, newList[0], newList[1], newList[2], legendField, csvData);
+		}
+		if (task == 'RANGE') {
+			newVega = lineRange(vega, mainField, mainType, subType, newList[0], newList[1], xList, yList, isMulti, csvData);
 		}
 	}
 	if (markType == "circle") {
@@ -249,26 +220,37 @@ const promptMsg = {
 		Rule 3: Extract the first and last year from the x-axis column of <data> if there is no certain years specified in <task> Trend- </task>, <task> Trend^ <task>, <task> Trendv <task> (e.g., 'overall increase')
 		Rule 4: Do not change the value extracted from <data> (e.g. <caption> says 'The highest value is 100' but <data> says '100*, 99* ...', you should extract 100* as the key value)
 		Rule 5: If "correlation" is mentioned, <task> will always be <task> TREND^ </task>.
-		Rule 6: <task> RETRIEVE </task> is never used if <data> has more than 2 columns.
+		Rule 6: Use the chart encodings to identify axis and series columns. Extra metadata columns do not define additional series.
 		
 		` }, // Using the target message here
 	],
 	temperature: TEMP
 }
-function getPrompt(chartType, isMulti, target) {
+function getPrompt(chartType, isMulti, target, spec) {
 	let newPromptMsg = JSON.parse(JSON.stringify(promptMsg));
+	if (spec) {
+		newPromptMsg.messages[1].content += `\nChart encodings: ${JSON.stringify(spec.encoding)}\n`;
+	}
+	if (isMulti) {
+		newPromptMsg.messages[1].content += `\nFor a caption about a named series, append its exact value from the series column after the axis values.
+		RETRIEVE: ["RETRIEVE", "x", "series"]
+		COMPARE: ["COMPARE", "x1", "x2", "series1", "series2"] (repeat the series for comparisons within one series).
+		TREND: ["TREND^", "start x", "end x", "series"] (also applies to TREND- and TRENDv).
+		For example, small cars increasing from 2013 to 2018: ["TREND^", "2013", "2018", "Small"].
+		Use the series field from color or detail, not the first data column. If no series is specified, omit series values.\n`;
+	}
 	newPromptMsg['messages'][1]['content'] +=  `The actual <caption> and <data> are given below.
 	<caption>`+target +'</caption>';
 	return newPromptMsg;
 }
 
-function parseTaskResponse(content) {
+function parseTaskResponse(content, isMulti = false) {
     const text = content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
     let taskList;
     try { taskList = JSON.parse(text); } catch {
         throw new Error('The model returned an invalid annotation. Please try again or select another model.');
     }
-    const counts = { RETRIEVE: [1, Infinity], COMPARE: [2, Infinity], FILTER: [1, 1], 'TREND^': [2, 2], 'TREND-': [2, 2], TRENDv: [2, 2], RANGE: [2, 2] };
+    const counts = { RETRIEVE: [1, Infinity], COMPARE: [2, Infinity], FILTER: [1, 1], 'TREND^': [2, isMulti ? 3 : 2], 'TREND-': [2, isMulti ? 3 : 2], TRENDv: [2, isMulti ? 3 : 2], RANGE: [2, 2] };
     const bounds = Array.isArray(taskList) && counts[taskList[0]];
     if (!bounds || taskList.length - 1 < bounds[0] || taskList.length - 1 > bounds[1] ||
         taskList.some(value => typeof value !== 'string' || !value.trim())) {
@@ -358,8 +340,8 @@ async function highLight(text, visID, spec, options = {}) {
             } else if (specObj.data.format?.type === 'tsv' || /\.tsv(?:\?|$)/i.test(specObj.data.url)) csvData = d3.csvFormat(d3.tsvParse(raw));
             else csvData = raw;
         } else throw new Error('Comment saved. No chart data is available for annotation.');
-        const [xList, yList, legendList, isMulti] = getColumn(csvData);
-        const prompt = getPrompt(specObj.mark, isMulti, text);
+        const [xList, yList, legendList, isMulti] = getColumn(csvData, specObj);
+        const prompt = getPrompt(specObj.mark, isMulti, text, specObj);
         prompt.model = options.model || document.getElementById('model-select').value;
         prompt.messages[1].content += `<data> ${csvData} </data>
         Please label <caption> and extract from <data>. Return only a JSON array of strings, starting with the task label:`;
@@ -370,7 +352,7 @@ async function highLight(text, visID, spec, options = {}) {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error?.message || 'AI assistance failed.');
         if (!isCurrent()) return;
-        const taskList = parseTaskResponse(data.choices[0].message.content);
+        const taskList = parseTaskResponse(data.choices[0].message.content, isMulti);
         const vega = structuredClone(specObj);
         // Vega-Lite's default mark color also needs to be explicit for the annotation helpers.
         if (!vega.encoding.color) vega.encoding.color = { value: vega.mark?.color || vega.config?.mark?.color || '#4c78a8' };
